@@ -12,9 +12,16 @@
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
         <postStartupActivity implementation="com.github.edenlia.shadertoyeditor.startup.MyProjectActivity" />
+        
+        <!-- Settings 配置页面 -->
+        <applicationConfigurable 
+            groupId="tools" 
+            displayName="Shadertoy Editor" 
+            id="shadertoy.editor.settings"
+            instance="com.github.edenlia.shadertoyeditor.settings.ShadertoyConfigurable"/>
     </extensions>
     <actions>
-        <action id="HelloWorldAction" class="HelloWorldAction" text="HelloWorldAction">
+        <action id="shadertoy.HelloWorldAction" class="HelloWorldAction" text="HelloWorldAction">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl H"/>
         </action>
