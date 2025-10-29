@@ -1,70 +1,67 @@
 package com.github.edenlia.shadertoyeditor.settings
 
-import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPasswordField
 import com.intellij.ui.components.JBTextField
+import com.intellij.ui.dsl.builder.*
 import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
-import java.awt.Insets
+import com.intellij.openapi.ui.DialogPanel
 import javax.swing.JComponent
-import javax.swing.JPanel
 
 /**
- * Settings UI 界面
- * 提供用户名和密码的输入界面
+ * Settings UI 界面 - 使用 Kotlin UI DSL
+ * 布局：Username 和 Password 在同一行，下方居中显示 Login 按钮
  */
 class ShadertoySettingsUI {
     
-    private val mainPanel: JPanel
-    
     // UI 组件
-    private val usernameField: JBTextField
-    private val passwordField: JBPasswordField
+    private val usernameField = JBTextField()
+    private val passwordField = JBPasswordField()
     
-    init {
-        mainPanel = JPanel(GridBagLayout())
-        val gbc = GridBagConstraints()
-        gbc.insets = Insets(5, 5, 5, 5)
-        gbc.fill = GridBagConstraints.HORIZONTAL
+    /**
+     * 主面板 - 使用 Kotlin UI DSL 构建
+     */
+    private val mainPanel: DialogPanel = panel {
+        // Row 1: Username 和 Password 在同一行
+        row {
+            // Username 部分（左半部分）
+            label("Username:")
+                .gap(RightGap.SMALL)
+            cell(usernameField)
+                .resizableColumn()
+                .align(AlignX.FILL)
+
+            // Password 部分（右半部分）
+            label("Password:")
+                .gap(RightGap.SMALL)
+            cell(passwordField)
+                .resizableColumn()
+                .align(AlignX.FILL)
+        }
         
-        // 初始化组件
-        usernameField = JBTextField()
-        passwordField = JBPasswordField()
+        // Row 2: 空行（增加间距）
+        row { }
         
-        // 布局组件
-        var row = 0
+        // Row 3: Login 按钮（居中）
+        row {
+            button("Login") {
+                onLoginClick()
+            }.align(AlignX.CENTER)
+        }
+    }
+    
+    /**
+     * Login 按钮点击事件
+     */
+    private fun onLoginClick() {
+        val username = usernameField.text
+        val password = String(passwordField.password)
         
-        // 用户名
-        gbc.gridx = 0
-        gbc.gridy = row
-        gbc.weightx = 0.0
-        gbc.anchor = GridBagConstraints.WEST
-        mainPanel.add(JBLabel("Username:"), gbc)
-        
-        gbc.gridx = 1
-        gbc.weightx = 1.0
-        mainPanel.add(usernameField, gbc)
-        row++
-        
-        // 密码
-        gbc.gridx = 0
-        gbc.gridy = row
-        gbc.weightx = 0.0
-        mainPanel.add(JBLabel("Password:"), gbc)
-        
-        gbc.gridx = 1
-        gbc.weightx = 1.0
-        mainPanel.add(passwordField, gbc)
-        row++
-        
-        // 填充剩余空间
-        gbc.gridx = 0
-        gbc.gridy = row
-        gbc.gridwidth = 2
-        gbc.weighty = 1.0
-        gbc.fill = GridBagConstraints.BOTH
-        mainPanel.add(JPanel(), gbc)
+        println("=================================")
+        println("🔐 Login Button Clicked")
+        println("---------------------------------")
+        println("Username: $username")
+        println("Password: ${"*".repeat(password.length)}")
+        println("=================================")
     }
     
     /**
