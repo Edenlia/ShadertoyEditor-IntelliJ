@@ -13,4 +13,10 @@
         <toolWindow factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
         <postStartupActivity implementation="com.github.edenlia.shadertoyeditor.startup.MyProjectActivity" />
     </extensions>
+    <actions>
+        <action id="HelloWorldAction" class="HelloWorldAction" text="HelloWorldAction">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl H"/>
+        </action>
+    </actions>
 </idea-plugin>
