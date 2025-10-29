@@ -1,9 +1,9 @@
-package com.github.edenlia.shadertoyeditorintellij.services
+package com.github.edenlia.shadertoyeditor.services
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
-import com.github.edenlia.shadertoyeditorintellij.MyBundle
+import com.github.edenlia.shadertoyeditor.MyBundle
 
 @Service(Service.Level.PROJECT)
 class MyProjectService(project: Project) {

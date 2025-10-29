@@ -1,4 +1,4 @@
-package com.github.edenlia.shadertoyeditorintellij
+package com.github.edenlia.shadertoyeditor
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.NonNls

@@ -1,4 +1,4 @@
-package com.github.edenlia.shadertoyeditorintellij.toolWindow
+package com.github.edenlia.shadertoyeditor.toolWindow
 
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
@@ -8,8 +8,8 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.content.ContentFactory
-import com.github.edenlia.shadertoyeditorintellij.MyBundle
-import com.github.edenlia.shadertoyeditorintellij.services.MyProjectService
+import com.github.edenlia.shadertoyeditor.MyBundle
+import com.github.edenlia.shadertoyeditor.services.MyProjectService
 import javax.swing.JButton
 
 

@@ -1,15 +1,16 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.edenlia.shadertoyeditorintellij</id>
-    <name>ShadertoyEditor-IntelliJ</name>
+    <id>com.github.edenlia.shadertoyeditor</id>
+    <name>ShadertoyEditor</name>
     <vendor>edenlia</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.kotlin</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.edenlia.shadertoyeditorintellij.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.edenlia.shadertoyeditorintellij.startup.MyProjectActivity" />
+        <toolWindow factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
+        <postStartupActivity implementation="com.github.edenlia.shadertoyeditor.startup.MyProjectActivity" />
     </extensions>
 </idea-plugin>

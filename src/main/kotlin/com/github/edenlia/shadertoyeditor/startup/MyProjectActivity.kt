@@ -1,4 +1,4 @@
-package com.github.edenlia.shadertoyeditorintellij.startup
+package com.github.edenlia.shadertoyeditor.startup
 
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
