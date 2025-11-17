@@ -10,7 +10,8 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
+        <toolWindow id="Shadertoy" factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.ShadertoyWindowFactory"/>
+        <toolWindow id="ShadertoyConsole" factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.ShadertoyOutputWindowFactory" anchor="right"/>
         <postStartupActivity implementation="com.github.edenlia.shadertoyeditor.startup.MyProjectActivity" />
         
         <!-- Settings 配置页面 -->
