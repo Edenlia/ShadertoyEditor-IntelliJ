@@ -11,9 +11,13 @@ import javax.swing.JComponent
  * JCEF浏览器组件，用于在工具窗口中渲染WebGL内容
  * 
  * @param project 当前项目实例
+ * @param htmlFile 要加载的HTML文件名（位于resources/webview/目录下）
  * @throws UnsupportedOperationException 当JCEF不被支持时抛出
  */
-class JCefBrowserComponent(private val project: Project) : Disposable {
+class JCefBrowserComponent(
+    private val project: Project,
+    private val htmlFile: String = "cube-preview.html"
+) : Disposable {
     
     private val browser: JBCefBrowser
     
@@ -40,9 +44,23 @@ class JCefBrowserComponent(private val project: Project) : Disposable {
      * 加载初始HTML内容
      */
     private fun loadInitialContent() {
-        val htmlContent = javaClass.getResource("/webview/test-red.html")?.readText()
+        val htmlContent = javaClass.getResource("/webview/$htmlFile")?.readText()
             ?: throw IllegalStateException(
-                "test-red.html not found in resources/webview/"
+                "$htmlFile not found in resources/webview/"
+            )
+        
+        browser.loadHTML(htmlContent)
+    }
+    
+    /**
+     * 动态加载指定的HTML文件
+     * 
+     * @param fileName HTML文件名（位于resources/webview/目录下）
+     */
+    fun loadHTMLFile(fileName: String) {
+        val htmlContent = javaClass.getResource("/webview/$fileName")?.readText()
+            ?: throw IllegalStateException(
+                "$fileName not found in resources/webview/"
             )
         
         browser.loadHTML(htmlContent)
