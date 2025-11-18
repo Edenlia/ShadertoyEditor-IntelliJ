@@ -49,6 +49,28 @@ dependencies {
 
         testFramework(TestFrameworkType.Platform)
     }
+    
+    // LWJGL3 - High performance OpenGL rendering
+    val lwjglVersion = "3.3.3"
+    val lwjglNatives = when {
+        org.gradle.internal.os.OperatingSystem.current().isLinux -> "natives-linux"
+        org.gradle.internal.os.OperatingSystem.current().isMacOsX -> {
+            if (System.getProperty("os.arch") == "aarch64") "natives-macos-arm64" 
+            else "natives-macos"
+        }
+        org.gradle.internal.os.OperatingSystem.current().isWindows -> "natives-windows"
+        else -> throw GradleException("Unsupported OS: ${org.gradle.internal.os.OperatingSystem.current()}")
+    }
+    
+    implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
+    
+    implementation("org.lwjgl:lwjgl")
+    implementation("org.lwjgl:lwjgl-opengl")
+    implementation("org.lwjgl:lwjgl-glfw")
+    
+    runtimeOnly("org.lwjgl:lwjgl::$lwjglNatives")
+    runtimeOnly("org.lwjgl:lwjgl-opengl::$lwjglNatives")
+    runtimeOnly("org.lwjgl:lwjgl-glfw::$lwjglNatives")
 }
 
 // Configure IntelliJ Platform Gradle Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html
