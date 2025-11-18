@@ -32,7 +32,7 @@ data class ShadertoyConfig(
      * 可选值：JCEF, LWJGL
      * 默认：JCEF（稳定性最好）
      */
-    var backendType: String = "LWJGL",
+    var backendType: String = "JCEF",
     
     /**
      * 配置版本号（用于未来升级）
