@@ -74,6 +74,18 @@ dependencies {
     
     // JOGL 本地 JAR 依赖
     implementation(files("libs/jogl-all.jar"))
+    
+    // JOGL natives - 根据不同平台加载对应的 natives
+    val joglNatives = when {
+        org.gradle.internal.os.OperatingSystem.current().isLinux -> null // 暂无 Linux natives
+        org.gradle.internal.os.OperatingSystem.current().isMacOsX -> "jogl-all-natives-macosx-universal.jar"
+        org.gradle.internal.os.OperatingSystem.current().isWindows -> "jogl-all-natives-windows-amd64.jar"
+        else -> throw GradleException("Unsupported OS for JOGL: ${org.gradle.internal.os.OperatingSystem.current()}")
+    }
+    
+    if (joglNatives != null) {
+        runtimeOnly(files("libs/$joglNatives"))
+    }
 }
 
 // Configure IntelliJ Platform Gradle Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html
