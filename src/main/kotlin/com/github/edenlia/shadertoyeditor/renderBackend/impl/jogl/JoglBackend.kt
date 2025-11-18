@@ -3,6 +3,7 @@ package com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
+import com.intellij.ui.JBColor
 import com.jogamp.opengl.*
 import com.jogamp.opengl.awt.GLCanvas
 import com.jogamp.opengl.util.FPSAnimator
@@ -119,21 +120,30 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     override fun init(drawable: GLAutoDrawable) {
         val gl = drawable.gl.gL3
 
-        thisLogger().info("[JOGL] OpenGL Context initialized")
+        thisLogger().info("[JOGL] ========== OpenGL Context Initialized ==========")
         thisLogger().info("[JOGL] OpenGL Version: ${gl.glGetString(GL.GL_VERSION)}")
         thisLogger().info("[JOGL] OpenGL Vendor: ${gl.glGetString(GL.GL_VENDOR)}")
         thisLogger().info("[JOGL] OpenGL Renderer: ${gl.glGetString(GL.GL_RENDERER)}")
+        thisLogger().info("[JOGL] GLSL Version: ${gl.glGetString(GL3.GL_SHADING_LANGUAGE_VERSION)}")
 
         // 创建fullscreen quad
         createQuad(gl)
+        
+        thisLogger().info("[JOGL] Initialization complete. Waiting for shader via loadShader()...")
+        thisLogger().info("[JOGL] ================================================")
     }
 
     override fun display(drawable: GLAutoDrawable) {
-        if (!shaderCompiled || shaderProgram == 0) return
-
         val gl = drawable.gl.gL3
 
-        // 清屏
+        // 如果没有shader，显示深灰色背景（表示等待shader）
+        if (!shaderCompiled || shaderProgram == 0) {
+            gl.glClearColor(0.2f, 0.2f, 0.2f, 1f)  // 深灰色
+            gl.glClear(GL.GL_COLOR_BUFFER_BIT)
+            return
+        }
+
+        // 清屏为黑色（正常渲染）
         gl.glClearColor(0f, 0f, 0f, 1f)
         gl.glClear(GL.GL_COLOR_BUFFER_BIT)
 
@@ -211,7 +221,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
                 SwingUtilities.invokeLater {
                     statusLabel.text = "Shader running - ${targetWidth}x${targetHeight}"
-                    statusLabel.foreground = Color.GREEN
+                    statusLabel.foreground = JBColor.GREEN
                 }
 
                 thisLogger().info("[JOGL] Shader loaded successfully")
@@ -222,7 +232,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
                 SwingUtilities.invokeLater {
                     statusLabel.text = "Shader compilation failed"
-                    statusLabel.foreground = Color.RED
+                    statusLabel.foreground = JBColor.RED
 
                     JOptionPane.showMessageDialog(
                         renderPanel,

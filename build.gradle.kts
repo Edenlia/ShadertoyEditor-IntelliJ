@@ -74,17 +74,19 @@ dependencies {
     
     // JOGL 本地 JAR 依赖
     implementation(files("libs/jogl-all.jar"))
+    implementation(files("libs/gluegen-rt.jar"))
     
     // JOGL natives - 根据不同平台加载对应的 natives
-    val joglNatives = when {
-        org.gradle.internal.os.OperatingSystem.current().isLinux -> null // 暂无 Linux natives
-        org.gradle.internal.os.OperatingSystem.current().isMacOsX -> "jogl-all-natives-macosx-universal.jar"
-        org.gradle.internal.os.OperatingSystem.current().isWindows -> "jogl-all-natives-windows-amd64.jar"
+    when {
+        org.gradle.internal.os.OperatingSystem.current().isMacOsX -> {
+            runtimeOnly(files("libs/jogl-all-natives-macosx-universal.jar"))
+            runtimeOnly(files("libs/gluegen-rt-natives-macosx-universal.jar"))
+        }
+        org.gradle.internal.os.OperatingSystem.current().isWindows -> {
+            runtimeOnly(files("libs/jogl-all-natives-windows-amd64.jar"))
+            runtimeOnly(files("libs/gluegen-rt-natives-windows-amd64.jar"))
+        }
         else -> throw GradleException("Unsupported OS for JOGL: ${org.gradle.internal.os.OperatingSystem.current()}")
-    }
-    
-    if (joglNatives != null) {
-        runtimeOnly(files("libs/$joglNatives"))
     }
 }
 

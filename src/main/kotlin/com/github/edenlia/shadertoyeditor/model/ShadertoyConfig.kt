@@ -1,4 +1,5 @@
 package com.github.edenlia.shadertoyeditor.model
+import com.jogamp.opengl.GL
 
 /**
  * Shadertoy Editor 配置数据模型
@@ -32,7 +33,7 @@ data class ShadertoyConfig(
      * 可选值：JCEF, LWJGL
      * 默认：JCEF（稳定性最好）
      */
-    var backendType: String = "JCEF",
+    var backendType: String = "JOGL",
     
     /**
      * 配置版本号（用于未来升级）
