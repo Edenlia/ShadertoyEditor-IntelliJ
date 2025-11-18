@@ -5,6 +5,7 @@ import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.*
 import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.openapi.ui.ComboBox
 import javax.swing.JComponent
 
 /**
@@ -20,6 +21,9 @@ class ShadertoySettingsUI {
     // UI 组件 - 分辨率设置
     private val targetWidthField = JBTextField()
     private val targetHeightField = JBTextField()
+    
+    // UI 组件 - Backend选择
+    private val backendComboBox = ComboBox(arrayOf("JCEF", "LWJGL"))
     
     /**
      * 主面板 - 使用 Kotlin UI DSL 构建
@@ -87,6 +91,28 @@ class ShadertoySettingsUI {
                 comment("范围：64-4096，默认：1280x720")
             }
         }
+        
+        // ===== 分隔空间 =====
+        row { }
+        
+        // ===== Render Backend Section =====
+        group("Render Backend") {
+            row {
+                label("渲染后端选择（需要重启IDE生效）")
+                    .bold()
+            }
+            
+            row {
+                label("Backend Type:")
+                    .gap(RightGap.SMALL)
+                cell(backendComboBox)
+                    .comment("JCEF: 稳定 (~30fps) | LWJGL: 高性能 (120fps+, 需要OpenGL 3.3+)")
+            }
+            
+            row {
+                comment("修改后需要重新打开Tool Window才能生效")
+            }
+        }
     }
     
     /**
@@ -146,11 +172,13 @@ class ShadertoySettingsUI {
     fun isModified(config: ShadertoyConfig): Boolean {
         val widthModified = targetWidthField.text.toIntOrNull() != config.targetWidth
         val heightModified = targetHeightField.text.toIntOrNull() != config.targetHeight
+        val backendModified = (backendComboBox.selectedItem as? String) != config.backendType
         
         return usernameField.text != config.username ||
                 String(passwordField.password) != config.password ||
                 widthModified ||
-                heightModified
+                heightModified ||
+                backendModified
     }
     
     /**
@@ -163,6 +191,9 @@ class ShadertoySettingsUI {
         // 保存分辨率（已通过验证）
         config.targetWidth = targetWidthField.text.toIntOrNull() ?: 1280
         config.targetHeight = targetHeightField.text.toIntOrNull() ?: 720
+        
+        // 保存Backend类型
+        config.backendType = (backendComboBox.selectedItem as? String) ?: "JCEF"
     }
     
     /**
@@ -175,6 +206,9 @@ class ShadertoySettingsUI {
         // 加载分辨率
         targetWidthField.text = config.targetWidth.toString()
         targetHeightField.text = config.targetHeight.toString()
+        
+        // 加载Backend类型
+        backendComboBox.selectedItem = config.backendType
     }
 }
 

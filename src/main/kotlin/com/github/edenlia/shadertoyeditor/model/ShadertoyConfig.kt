@@ -28,6 +28,13 @@ data class ShadertoyConfig(
     var targetHeight: Int = 720,
     
     /**
+     * 渲染后端类型
+     * 可选值：JCEF, LWJGL
+     * 默认：JCEF（稳定性最好）
+     */
+    var backendType: String = "JCEF",
+    
+    /**
      * 配置版本号（用于未来升级）
      */
     var version: Int = 1

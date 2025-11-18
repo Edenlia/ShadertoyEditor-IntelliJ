@@ -82,8 +82,8 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                 // 编译shader代码
                 val shaderCode = shaderCompileService.compileShaderFromTemplate()
                 
-                // 加载到浏览器渲染器
-                outputWindow.getBrowserComponent().loadShaderCode(shaderCode)
+                // 加载到渲染后端
+                outputWindow.getRenderBackend().loadShader(shaderCode)
                 
                 thisLogger().info("Shader compiled and loaded successfully")
             } catch (e: Exception) {

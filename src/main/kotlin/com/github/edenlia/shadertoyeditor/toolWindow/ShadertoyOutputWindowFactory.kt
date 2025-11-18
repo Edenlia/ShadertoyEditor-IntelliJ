@@ -5,9 +5,10 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.content.ContentFactory
-import com.github.edenlia.shadertoyeditor.browser.JCefBrowserComponent
+import com.github.edenlia.shadertoyeditor.renderBackend.impl.jcef.JCefBackend
+import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
+import com.github.edenlia.shadertoyeditor.renderBackend.impl.lwjgl.LwjglBackend
 import com.github.edenlia.shadertoyeditor.listeners.ResolutionChangedListener
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import javax.swing.JComponent
@@ -36,14 +37,21 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
     override fun shouldBeAvailable(project: Project) = true
 
     /**
-     * Shadertoy输出窗口，使用JCEF浏览器显示WebGL渲染内容
+     * Shadertoy输出窗口，使用可配置的渲染后端显示Shader渲染内容
      */
     class ShadertoyOutputWindow(private val project: Project) {
         
-        private val browserComponent: JCefBrowserComponent
+        private val renderBackend: RenderBackend
         
         init {
-            browserComponent = JCefBrowserComponent(project)
+            // 根据配置创建渲染后端
+            val config = ShadertoySettings.getInstance().getConfig()
+            val backendType = config.backendType.uppercase()
+            
+            renderBackend = when (backendType) {
+                "LWJGL" -> LwjglBackend(project)
+                else -> JCefBackend(project)  // 默认使用JCEF
+            }
             
             // 订阅分辨率变更事件
             subscribeToResolutionChanges()
@@ -84,28 +92,28 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          * 更新分辨率
          */
         private fun updateResolution(width: Int, height: Int) {
-            browserComponent.updateTargetResolution(width, height)
+            renderBackend.setResolution(width, height)
         }
         
         /**
          * 获取窗口内容组件
          */
         fun getContent(): JComponent {
-            return browserComponent.getComponent()
+            return renderBackend.getComponent()
         }
         
         /**
-         * 获取浏览器组件，用于执行JavaScript
+         * 获取渲染后端实例
          */
-        fun getBrowserComponent(): JCefBrowserComponent {
-            return browserComponent
+        fun getRenderBackend(): RenderBackend {
+            return renderBackend
         }
-        
+
         /**
          * 释放资源
          */
         fun dispose() {
-            browserComponent.dispose()
+            renderBackend.dispose()
         }
     }
     
