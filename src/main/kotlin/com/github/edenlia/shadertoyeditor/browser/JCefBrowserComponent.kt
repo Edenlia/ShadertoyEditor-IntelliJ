@@ -16,7 +16,7 @@ import javax.swing.JComponent
  */
 class JCefBrowserComponent(
     private val project: Project,
-    private val htmlFile: String = "cube-preview.html"
+    private val htmlFile: String = "shadertoy-renderer.html"
 ) : Disposable {
     
     private val browser: JBCefBrowser

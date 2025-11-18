@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Simple Shader Test</title>
+    <style>
+        body { margin: 0; background: #000; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #info { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            color: #0f0; 
+            font: 12px monospace; 
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="info">Loading...</div>
+    
+    <!-- Vertex Shader -->
+    <script id="vs" type="x-shader/x-vertex">#version 300 es
+void main() {
+    float x = float((gl_VertexID & 1) << 2);
+    float y = float((gl_VertexID & 2) << 1);
+    gl_Position = vec4(x - 1.0, y - 1.0, 0, 1);
+}
+</script>
+    
+    <!-- Fragment Shader - Super Simple Test -->
+    <script id="fs" type="x-shader/x-fragment">#version 300 es
+precision highp float;
+uniform float iTime;
+uniform vec3 iResolution;
+out vec4 fragColor;
+
+void main() {
+    // UV coordinates (0 to 1)
+    vec2 uv = gl_FragCoord.xy / iResolution.xy;
+    
+    // Simple animated gradient
+    vec3 col = vec3(
+        0.5 + 0.5 * sin(iTime + uv.x * 3.14),
+        0.5 + 0.5 * cos(iTime + uv.y * 3.14),
+        0.5 + 0.5 * sin(iTime * 2.0)
+    );
+    
+    fragColor = vec4(col, 1.0);
+}
+</script>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const info = document.getElementById('info');
+        
+        // Get WebGL 2 context
+        const gl = canvas.getContext('webgl2');
+        if (!gl) {
+            info.textContent = 'ERROR: WebGL 2 not supported!';
+            info.style.color = '#f00';
+            throw new Error('WebGL 2 not supported');
+        }
+        
+        // Resize canvas
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        
+        // Compile shader
+        function compile(src, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, src);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                const err = gl.getShaderInfoLog(shader);
+                info.textContent = 'SHADER ERROR:\n' + err;
+                info.style.color = '#f00';
+                throw new Error(err);
+            }
+            return shader;
+        }
+        
+        // Create program
+        const vs = compile(document.getElementById('vs').textContent.trim(), gl.VERTEX_SHADER);
+        const fs = compile(document.getElementById('fs').textContent.trim(), gl.FRAGMENT_SHADER);
+        const prog = gl.createProgram();
+        gl.attachShader(prog, vs);
+        gl.attachShader(prog, fs);
+        gl.linkProgram(prog);
+        
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+            const err = gl.getProgramInfoLog(prog);
+            info.textContent = 'LINK ERROR:\n' + err;
+            info.style.color = '#f00';
+            throw new Error(err);
+        }
+        
+        gl.useProgram(prog);
+        
+        // Get uniform locations
+        const uTime = gl.getUniformLocation(prog, 'iTime');
+        const uRes = gl.getUniformLocation(prog, 'iResolution');
+        
+        info.textContent = 'Shader compiled successfully!\nRendering...';
+        info.style.color = '#0f0';
+        
+        // Render loop
+        const start = Date.now();
+        function render() {
+            requestAnimationFrame(render);
+            
+            const time = (Date.now() - start) * 0.001;
+            
+            // Clear
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            
+            // Update uniforms
+            gl.uniform1f(uTime, time);
+            gl.uniform3f(uRes, canvas.width, canvas.height, 1.0);
+            
+            // Draw
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            
+            // Update info
+            info.textContent = `Time: ${time.toFixed(2)}s\nResolution: ${canvas.width}x${canvas.height}`;
+        }
+        
+        render();
+    </script>
+</body>
+</html>
+
