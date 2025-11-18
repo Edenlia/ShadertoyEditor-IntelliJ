@@ -51,7 +51,7 @@ dependencies {
     }
     
     // LWJGL3 - High performance OpenGL rendering
-    val lwjglVersion = "3.3.3"
+    val lwjglVersion = "3.3.6"
     val lwjglNatives = when {
         org.gradle.internal.os.OperatingSystem.current().isLinux -> "natives-linux"
         org.gradle.internal.os.OperatingSystem.current().isMacOsX -> {
