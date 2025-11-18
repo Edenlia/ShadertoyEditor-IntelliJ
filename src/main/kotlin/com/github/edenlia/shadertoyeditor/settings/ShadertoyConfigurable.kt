@@ -1,7 +1,9 @@
 package com.github.edenlia.shadertoyeditor.settings
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.SearchableConfigurable
 import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
+import com.github.edenlia.shadertoyeditor.listeners.ResolutionChangedListener
 import javax.swing.JComponent
 
 /**
@@ -49,12 +51,25 @@ class ShadertoyConfigurable : SearchableConfigurable {
     
     /**
      * 应用配置更改
+     * Apply后通过MessageBus通知所有监听器
      */
     override fun apply() {
         val settings = ShadertoySettings.getInstance()
-        val config = settings.getConfig().clone() // 克隆避免直接修改
-        settingsUI?.apply(config)
-        settings.setConfig(config)
+        val oldConfig = settings.getConfig()
+        val newConfig = oldConfig.clone() // 克隆避免直接修改
+        
+        settingsUI?.apply(newConfig)
+        settings.setConfig(newConfig)
+        
+        // 检查分辨率是否发生变化
+        if (oldConfig.targetWidth != newConfig.targetWidth || 
+            oldConfig.targetHeight != newConfig.targetHeight) {
+            
+            // 通过Application级别的MessageBus发送通知
+            ApplicationManager.getApplication().messageBus
+                .syncPublisher(ResolutionChangedListener.TOPIC)
+                .onResolutionChanged(newConfig.targetWidth, newConfig.targetHeight)
+        }
     }
     
     /**

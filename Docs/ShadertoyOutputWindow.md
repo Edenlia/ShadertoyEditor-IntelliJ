@@ -124,139 +124,185 @@ browser.cefBrowser.executeJavaScript(jsCode, url, 0)
 
 ## 三、架构设计方案
 
-### 3.1 整体架构
+### 3.1 整体架构（当前实现）
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   IntelliJ Platform                      │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  ┌─────────────────┐         ┌──────────────────────┐  │
-│  │  Shadertoy      │         │ ShadertoyOutput      │  │
-│  │  WindowFactory  │         │ WindowFactory        │  │
-│  │  (主窗口)       │         │ (渲染窗口)           │  │
-│  └────────┬────────┘         └──────────┬───────────┘  │
-│           │                              │               │
-│           │                              │               │
-│  ┌────────▼────────┐         ┌──────────▼───────────┐  │
-│  │  Editor Panel   │         │   JBCefBrowser       │  │
-│  │  (代码编辑)     │◄───────►│   (WebGL渲染)        │  │
-│  └─────────────────┘         └──────────┬───────────┘  │
-│                                          │               │
-│  ┌─────────────────────────────────────┼──────────┐   │
-│  │         ShaderManager                │          │   │
-│  │  - 解析shader代码                    │          │   │
-│  │  - 管理buffer依赖                    │          │   │
-│  │  - 资源加载                          │          │   │
-│  │  - 与浏览器通信                      │          │   │
-│  └──────────────────────────────────────┘          │   │
-│                                                      │   │
-└──────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                   IntelliJ Platform                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌──────────────────────┐      ┌──────────────────────┐    │
+│  │  ShadertoyWindow     │      │ ShadertoyConsole     │    │
+│  │  (主窗口)            │      │ (渲染窗口)           │    │
+│  │  - Shuffle按钮       │      │                      │    │
+│  │  - Compile按钮  ━━━━━━━━━━━▶│  JCefBrowser        │    │
+│  └──────────┬───────────┘      │  (WebGL渲染)         │    │
+│             │                   └──────────┬───────────┘    │
+│             │                              │                 │
+│             ▼                              │                 │
+│  ┌──────────────────────┐                 │                 │
+│  │ ShaderCompileService │                 │                 │
+│  │ - readImageGlslFile()│                 │                 │
+│  │ - wrapShaderCode()   │                 │                 │
+│  └──────────┬───────────┘                 │                 │
+│             │                              │                 │
+│             ▼                              │                 │
+│  ┌──────────────────────────────────────┐ │                 │
+│  │    VirtualFileSystem                  │ │                 │
+│  │    src/main/resources/               │ │                 │
+│  │    shaderTemplate/Image.glsl         │ │                 │
+│  └──────────────────────────────────────┘ │                 │
+│                                            │                 │
+│             │                              │                 │
+│             └──────────────────────────────┘                 │
+│                      JavaScript执行                          │
+│                 window.loadShader(code)                      │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
                           │
                           ▼
-        ┌─────────────────────────────────────┐
-        │   Browser (JCEF/Chromium)           │
-        ├─────────────────────────────────────┤
-        │  webview_base.html                  │
-        │  ├── Three.js                       │
-        │  ├── WebGL Renderer                 │
-        │  ├── Shader Programs                │
-        │  ├── Texture Manager                │
-        │  └── Message Handler (JS↔Java)      │
-        └─────────────────────────────────────┘
+        ┌─────────────────────────────────────────┐
+        │   Browser (JCEF/Chromium)               │
+        ├─────────────────────────────────────────┤
+        │  shadertoy-renderer.html                │
+        │  ├── WebGL 2.0 Renderer                 │
+        │  ├── Shader Compiler                    │
+        │  ├── window.loadShader() API            │
+        │  ├── Performance Stats (FPS/Frame)      │
+        │  └── Error Display                      │
+        └─────────────────────────────────────────┘
 ```
 
-### 3.2 核心模块
+### 3.2 核心模块（实际实现）
 
-#### 模块1: ShadertoyOutputWindowFactory (渲染窗口工厂)
+#### 模块1: ShadertoyOutputWindowFactory (渲染窗口工厂) ✅
 
 ```kotlin
 class ShadertoyOutputWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val outputWindow = ShadertoyOutputWindow(project, toolWindow)
+        val shadertoyOutputWindow = ShadertoyOutputWindow(project)
         val content = ContentFactory.getInstance()
-            .createContent(outputWindow.getContent(), null, false)
+            .createContent(shadertoyOutputWindow.getContent(), null, false)
+        
+        // 将实例保存到project的userData中，供其他组件访问
+        project.putUserData(SHADERTOY_OUTPUT_WINDOW_KEY, shadertoyOutputWindow)
+        
+        Disposer.register(content) {
+            project.putUserData(SHADERTOY_OUTPUT_WINDOW_KEY, null)
+            shadertoyOutputWindow.dispose()
+        }
+        
         toolWindow.contentManager.addContent(content)
     }
     
-    class ShadertoyOutputWindow(
-        private val project: Project,
-        private val toolWindow: ToolWindow
-    ) {
-        private val browser: JBCefBrowser = JBCefBrowser()
-        private val shaderManager: ShaderManager
-        private val messageHandler: BrowserMessageHandler
+    class ShadertoyOutputWindow(private val project: Project) {
+        private val browserComponent: JCefBrowserComponent
         
         init {
-            setupBrowser()
-            setupCommunication()
-            loadWebGLContent()
+            browserComponent = JCefBrowserComponent(project)
         }
         
-        fun getContent(): JComponent {
-            return browser.component
-        }
+        fun getContent(): JComponent = browserComponent.getComponent()
+        fun getBrowserComponent(): JCefBrowserComponent = browserComponent
+        fun dispose() = browserComponent.dispose()
+    }
+    
+    companion object {
+        // 获取项目的ShadertoyOutputWindow实例
+        fun getInstance(project: Project): ShadertoyOutputWindow?
     }
 }
 ```
 
-#### 模块2: ShaderManager (Shader管理器)
+#### 模块2: JCefBrowserComponent (浏览器组件) ✅
 
 ```kotlin
-class ShaderManager(private val project: Project) {
-    private val parser: ShaderParser
-    private val bufferProvider: BufferProvider
+class JCefBrowserComponent(
+    private val project: Project,
+    private val htmlFile: String = "shadertoy-renderer.html"
+) : Disposable {
+    private val browser: JBCefBrowser
     
-    // 解析shader代码
-    fun parseShader(code: String): ShaderData
+    init {
+        // 创建浏览器并启用开发者工具
+        browser = JBCefBrowser()
+        browser.jbCefClient.setProperty("remote_debugging_port", "9222")
+        loadInitialContent()
+    }
     
-    // 处理多pass依赖
-    fun buildBufferChain(mainShader: String): List<BufferDefinition>
+    // 执行JavaScript代码
+    fun executeJavaScript(jsCode: String)
     
-    // 监听文件变化
-    fun watchFiles()
+    // 加载shader代码到WebGL渲染器（带自动重试机制）
+    fun loadShaderCode(fragmentShaderSource: String)
     
-    // 发送shader到浏览器
-    fun updateShaderInBrowser(shaderData: ShaderData)
+    fun getComponent(): JComponent = browser.component
 }
 ```
 
-#### 模块3: BrowserMessageHandler (通信处理器)
+#### 模块3: ShaderCompileService (Shader编译服务) ✅
 
 ```kotlin
-class BrowserMessageHandler(private val browser: JBCefBrowser) {
-    private val jsToJavaQuery: JBCefJSQuery
+@Service(Service.Level.PROJECT)
+class ShaderCompileService(private val project: Project) {
     
-    // Java -> JavaScript
-    fun sendShaderUpdate(shader: String)
-    fun sendCommand(command: String, params: Map<String, Any>)
+    // 编译shader模板文件
+    fun compileShaderFromTemplate(): String {
+        val glslContent = readImageGlslFile()
+        return wrapShaderCode(glslContent)
+    }
     
-    // JavaScript -> Java
-    fun onMessage(message: String) {
-        when (message.type) {
-            "error" -> handleShaderError(message)
-            "ready" -> handleBrowserReady(message)
-            "pause" -> handlePauseRequest(message)
-        }
+    // 使用VirtualFileSystem读取Image.glsl（实时更新）
+    private fun readImageGlslFile(): String {
+        val filePath = "$projectBasePath/src/main/resources/shaderTemplate/Image.glsl"
+        val virtualFile = VirtualFileManager.getInstance().findFileByUrl("file://$filePath")
+        return String(virtualFile.contentsToByteArray())
+    }
+    
+    // 包装用户代码为完整的Fragment Shader
+    private fun wrapShaderCode(userGlslCode: String): String {
+        // 添加 #version 300 es、uniforms、out、main()函数
     }
 }
 ```
 
-#### 模块4: WebviewContentAssembler (HTML内容生成器)
+#### 模块4: ShadertoyWindowFactory (主窗口) ✅
 
 ```kotlin
-class WebviewContentAssembler {
-    // 加载base HTML模板
-    fun loadBaseTemplate(): String
+class ShadertoyWindowFactory : ToolWindowFactory {
+    override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+        val shadertoyWindow = ShadertoyWindow(toolWindow)
+        val content = ContentFactory.getInstance().createContent(shadertoyWindow.getContent(), null, false)
+        toolWindow.contentManager.addContent(content)
+        
+        // 等待索引完成后自动触发首次编译
+        DumbService.getInstance(project).runWhenSmart {
+            SwingUtilities.invokeLater {
+                shadertoyWindow.compileShader()
+            }
+        }
+    }
     
-    // 注入shader代码
-    fun injectShaders(buffers: List<BufferDefinition>): String
-    
-    // 注入配置
-    fun injectConfig(config: ShaderConfig): String
-    
-    // 生成最终HTML
-    fun assembleContent(): String
+    class ShadertoyWindow(private val toolWindow: ToolWindow) {
+        private val shaderCompileService = project.service<ShaderCompileService>()
+        
+        // UI包含Shuffle按钮和Compile按钮
+        fun getContent() = JBPanel<JBPanel<*>>().apply {
+            add(JButton("Shuffle") { ... })
+            add(JButton("Compile") { compileShader() })
+        }
+        
+        // 编译并加载shader（处理Dumb Mode）
+        fun compileShader() {
+            if (DumbService.isDumb(project)) {
+                DumbService.getInstance(project).runWhenSmart { compileShader() }
+                return
+            }
+            
+            val shaderCode = shaderCompileService.compileShaderFromTemplate()
+            outputWindow.getBrowserComponent().loadShaderCode(shaderCode)
+        }
+    }
 }
 ```
 
@@ -264,300 +310,411 @@ class WebviewContentAssembler {
 
 ## 四、详细实现方案
 
-### 4.1 文件结构
+### 4.1 文件结构（当前实现）
 
 ```
 src/main/
 ├── kotlin/com/github/edenlia/shadertoyeditor/
 │   ├── toolWindow/
-│   │   ├── ShadertoyWindowFactory.kt          # 主窗口
-│   │   └── ShadertoyOutputWindowFactory.kt    # 渲染窗口
+│   │   ├── ShadertoyWindowFactory.kt          # 主窗口 ✅
+│   │   ├── ShadertoyOutputWindowFactory.kt    # 渲染窗口 ✅
+│   │   └── ShadertoyWindowFactory.kt          # (另一个窗口)
 │   ├── browser/
-│   │   ├── JCefBrowserComponent.kt            # JCEF浏览器组件
-│   │   ├── BrowserMessageHandler.kt           # 消息处理
-│   │   └── JavaScriptBridge.kt                # JS桥接
-│   ├── shader/
-│   │   ├── ShaderManager.kt                   # Shader管理
-│   │   ├── ShaderParser.kt                    # 代码解析
-│   │   ├── BufferProvider.kt                  # Buffer管理
-│   │   └── ShaderLexer.kt                     # 词法分析
-│   ├── webview/
-│   │   ├── WebviewContentAssembler.kt         # HTML组装
-│   │   └── ResourceManager.kt                 # 资源管理
-│   └── listeners/
-│       ├── FileChangeListener.kt              # 文件监听
-│       └── EditorChangeListener.kt            # 编辑器监听
+│   │   └── JCefBrowserComponent.kt            # JCEF浏览器组件 ✅
+│   ├── services/
+│   │   ├── ShaderCompileService.kt            # Shader编译服务 ✅
+│   │   ├── MyProjectService.kt                # 项目服务
+│   │   └── ConfigUsageExample.kt              # 配置示例
+│   ├── settings/
+│   │   ├── ShadertoyConfigurable.kt           # 设置页面
+│   │   ├── ShadertoySettings.kt               # 设置存储
+│   │   └── ShadertoySettingsUI.kt             # 设置UI
+│   ├── startup/
+│   │   ├── HelloWorldAction.kt                # 示例Action
+│   │   └── MyProjectActivity.kt               # 启动Activity
+│   ├── model/
+│   │   └── ShadertoyConfig.kt                 # 配置模型
+│   └── MyBundle.kt                            # 国际化
 │
 └── resources/
     ├── webview/
-    │   ├── webview_base.html                  # 基础HTML模板
-    │   ├── shadertoy.js                       # 主要JS逻辑
-    │   └── styles.css                         # 样式
-    ├── lib/
-    │   ├── three.min.js                       # Three.js
-    │   ├── stats.min.js                       # 性能监控
-    │   └── dat.gui.min.js                     # GUI控制
-    └── shaders/
-        └── default.frag                       # 默认shader
+    │   ├── shadertoy-renderer.html            # WebGL渲染器 ✅
+    │   ├── cube-preview.html                  # 立方体预览
+    │   ├── test-red.html                      # 测试页面
+    │   └── test-simple-shader.html            # 简单shader测试
+    ├── shaderTemplate/
+    │   └── Image.glsl                         # Shader模板 ✅
+    ├── messages/
+    │   └── MyBundle.properties                # 国际化文本
+    └── META-INF/
+        └── plugin.xml                         # 插件配置 ✅
 ```
 
-### 4.2 关键实现细节
+**说明**：
+- ✅ 标记的是当前已实现且正在使用的核心文件
+- 其他文件是框架生成的或用于未来扩展
 
-#### 4.2.1 JCEF浏览器初始化
+### 4.2 关键实现细节（当前实现）
+
+#### 4.2.1 JCEF浏览器初始化 ✅
 
 ```kotlin
-class JCefBrowserComponent(private val project: Project) {
+class JCefBrowserComponent(
+    private val project: Project,
+    private val htmlFile: String = "shadertoy-renderer.html"
+) : Disposable {
     private val browser: JBCefBrowser
     
     init {
-        // 检查JCEF是否可用
+        // 检查JCEF是否被支持
         if (!JBCefApp.isSupported()) {
-            throw UnsupportedOperationException("JCEF is not supported")
+            throw UnsupportedOperationException(
+                "JCEF is not supported in this IDE. " +
+                "Please upgrade to IntelliJ IDEA 2020.1 or later."
+            )
         }
         
         // 创建浏览器实例
         browser = JBCefBrowser()
         
-        // 启用开发者工具（调试用）
-        browser.jbCefClient.setProperty(
-            JBCefClient.Properties.JS_QUERY_POOL_SIZE, 
-            10
-        )
+        // 启用开发者工具（用于调试）
+        // 右键点击网页 -> "Open DevTools" 可以查看控制台日志
+        browser.jbCefClient.setProperty("remote_debugging_port", "9222")
         
-        // 设置生命周期处理
-        Disposer.register(project, browser)
+        // 设置生命周期管理
+        Disposer.register(project, this)
+        
+        // 加载初始HTML内容
+        loadInitialContent()
     }
     
-    fun loadContent(htmlContent: String) {
-        // 方案1: 直接加载HTML字符串
-        browser.loadHTML(htmlContent)
+    private fun loadInitialContent() {
+        val htmlContent = javaClass.getResource("/webview/$htmlFile")?.readText()
+            ?: throw IllegalStateException("$htmlFile not found in resources/webview/")
         
-        // 方案2: 加载本地文件URL
-        // val url = getResourceURL("webview/webview_base.html")
-        // browser.loadURL(url)
+        browser.loadHTML(htmlContent)
     }
     
     fun getComponent(): JComponent = browser.component
+    override fun dispose() = browser.dispose()
 }
 ```
 
-#### 4.2.2 Java ↔ JavaScript 通信
+#### 4.2.2 Java → JavaScript 通信（Shader注入）✅
 
 ```kotlin
-// Java -> JavaScript
-fun sendShaderToJS(shaderCode: String) {
-    val escapedCode = shaderCode
-        .replace("\\", "\\\\")
-        .replace("'", "\\'")
-        .replace("\n", "\\n")
-    
-    val jsCode = """
-        window.updateShader('$escapedCode');
-    """.trimIndent()
-    
+/**
+ * 执行JavaScript代码
+ */
+fun executeJavaScript(jsCode: String) {
     browser.cefBrowser.executeJavaScript(jsCode, browser.cefBrowser.url, 0)
 }
 
-// JavaScript -> Java
-fun setupJavaScriptBridge() {
-    val query = JBCefJSQuery.create(browser as JBCefBrowserBase)
+/**
+ * 加载shader代码到WebGL渲染器
+ * 包含自动重试机制，确保window.loadShader可用后再执行
+ */
+fun loadShaderCode(fragmentShaderSource: String) {
+    // 转义特殊字符，使用模板字符串
+    val escapedCode = fragmentShaderSource
+        .replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("$", "\\$")
     
-    query.addHandler { message ->
-        ApplicationManager.getApplication().invokeLater {
-            handleMessageFromJS(message)
-        }
-        return@addHandler null
-    }
-    
-    // 在HTML中注入JS桥接函数
-    val injectionScript = """
-        window.sendToJava = function(message) {
-            ${query.inject("message")}
-        };
-    """.trimIndent()
-    
-    browser.cefBrowser.executeJavaScript(
-        injectionScript,
-        browser.cefBrowser.url,
-        0
-    )
-}
-```
-
-#### 4.2.3 文件变化监听
-
-```kotlin
-class FileChangeListener(
-    private val project: Project,
-    private val onFileChanged: (VirtualFile) -> Unit
-) : BulkFileListener {
-    
-    fun register() {
-        project.messageBus.connect()
-            .subscribe(VirtualFileManager.VFS_CHANGES, this)
-    }
-    
-    override fun after(events: List<VFileEvent>) {
-        events.forEach { event ->
-            if (event is VFileContentChangeEvent) {
-                val file = event.file
-                if (file.extension == "glsl" || file.extension == "frag") {
-                    onFileChanged(file)
+    // 调用网页中的 window.loadShader 函数
+    // 使用 setTimeout 确保在浏览器完全加载后执行
+    val jsCode = """
+        (function() {
+            console.log('[Shadertoy] Attempting to load shader...');
+            
+            function tryLoadShader() {
+                if (typeof window.loadShader === 'function') {
+                    console.log('[Shadertoy] window.loadShader found, loading shader...');
+                    try {
+                        window.loadShader(`$escapedCode`);
+                        console.log('[Shadertoy] Shader loaded and compiled successfully!');
+                    } catch (e) {
+                        console.error('[Shadertoy] Failed to load shader:', e);
+                    }
+                } else {
+                    console.warn('[Shadertoy] window.loadShader not ready, retrying in 100ms...');
+                    setTimeout(tryLoadShader, 100);
                 }
             }
-        }
-    }
+            
+            tryLoadShader();
+        })();
+    """.trimIndent()
+    
+    executeJavaScript(jsCode)
 }
 ```
 
-#### 4.2.4 HTML内容生成
+**特点**：
+- ✅ 自动重试机制：如果 `window.loadShader` 未就绪，每100ms重试一次
+- ✅ 完整的日志输出：便于调试
+- ✅ 异常处理：捕获shader编译错误
+
+#### 4.2.3 VirtualFileSystem 文件读取 ✅
 
 ```kotlin
-class WebviewContentAssembler(private val project: Project) {
+/**
+ * 使用VirtualFileSystem读取Image.glsl文件
+ * 优势：实时读取最新文件内容，无需重新编译插件
+ */
+private fun readImageGlslFile(): String {
+    val projectBasePath = project.basePath 
+        ?: throw IllegalStateException("Project base path is null")
     
-    fun generateHTML(shaderData: ShaderData): String {
-        // 读取基础模板
-        val template = loadTemplate("webview/webview_base.html")
-        
-        // 替换占位符
-        return template
-            .replace("<!-- Shaders -->", generateShaderScripts(shaderData))
-            .replace("<!-- Three.js -->", getLibraryPath("three.min.js"))
-            .replace("<!-- Start Time -->", "0.0")
-            .replace("<!-- Start Paused -->", "false")
-    }
+    // 构建文件路径
+    val filePath = "$projectBasePath/src/main/resources/shaderTemplate/Image.glsl"
     
-    private fun generateShaderScripts(shaderData: ShaderData): String {
-        return shaderData.buffers.joinToString("\n") { buffer ->
-            """
-            <script type="x-shader/x-fragment" id="${buffer.name}">
-            ${buffer.code}
-            </script>
-            """.trimIndent()
+    // 使用 VirtualFileManager 查找文件
+    val virtualFile = VirtualFileManager.getInstance()
+        .findFileByUrl("file://$filePath")
+        ?: throw IllegalStateException("Image.glsl not found at: $filePath")
+    
+    // 读取文件内容（实时获取）
+    return String(virtualFile.contentsToByteArray())
+}
+```
+
+**为什么使用 VirtualFileSystem？**
+1. ✅ **实时更新**：读取文件系统中的最新内容，不是编译后的静态资源
+2. ✅ **IntelliJ 标准**：这是 JetBrains 平台推荐的文件访问方式
+3. ✅ **易于扩展**：未来支持多 mapping 时只需参数化路径
+4. ✅ **跨平台**：自动处理不同操作系统的路径差异
+
+**对比 `javaClass.getResource()`**：
+- ❌ `getResource()` 读取的是编译时打包的静态文件
+- ❌ 修改源文件后必须重新构建才能看到变化
+- ✅ VirtualFileSystem 直接读取源文件，修改后点击 Compile 立即生效
+
+#### 4.2.4 Shader代码包装 ✅
+
+```kotlin
+/**
+ * 将用户的mainImage函数包装成完整的Fragment Shader
+ * 用户只需在Image.glsl中写mainImage函数，其他部分自动添加
+ */
+private fun wrapShaderCode(userGlslCode: String): String {
+    return """
+#version 300 es
+precision highp float;
+
+uniform vec3 iResolution;
+uniform float iTime;
+uniform float iTimeDelta;
+uniform int iFrame;
+uniform vec4 iMouse;
+uniform vec4 iDate;
+
+out vec4 fragColor;
+
+$userGlslCode
+
+void main() {
+    mainImage(fragColor, gl_FragCoord.xy);
+}
+    """.trimIndent()
+}
+```
+
+**包装内容**：
+- ✅ `#version 300 es` - WebGL 2.0 版本声明
+- ✅ `precision highp float` - 高精度浮点数
+- ✅ Shadertoy标准uniforms（iTime、iResolution等）
+- ✅ `out vec4 fragColor` - 输出颜色
+- ✅ `main()` 函数 - 调用用户的 `mainImage()`
+
+**用户只需写**：
+```glsl
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 uv = fragCoord / iResolution.xy;
+    vec3 col = 0.5 + 0.5 * cos(iTime + uv.xyx + vec3(0.0, 2.0, 4.0));
+    fragColor = vec4(col, 1.0);
+}
+```
+
+### 4.3 DumbService处理（索引问题）✅
+
+在 IntelliJ 启动或构建索引时，很多服务不可用（Dumb Mode）。必须等待索引完成才能执行编译。
+
+```kotlin
+/**
+ * 创建工具窗口时自动触发首次编译
+ * 使用DumbService确保在索引完成后执行
+ */
+override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+    val shadertoyWindow = ShadertoyWindow(toolWindow)
+    // ...
+    
+    // 等待索引构建完成后再自动触发第一次编译
+    DumbService.getInstance(project).runWhenSmart {
+        SwingUtilities.invokeLater {
+            shadertoyWindow.compileShader()
         }
     }
-    
-    private fun getLibraryPath(libName: String): String {
-        val resource = javaClass.getResource("/webview/lib/$libName")
-        return resource?.toExternalForm() ?: ""
+}
+
+/**
+ * 用户手动点击Compile时也要检查
+ */
+fun compileShader() {
+    // 检查是否处于索引构建模式
+    if (DumbService.isDumb(project)) {
+        thisLogger().info("Cannot compile shader during indexing, will retry when indexing is complete")
+        // 等待索引完成后再执行
+        DumbService.getInstance(project).runWhenSmart {
+            compileShader()
+        }
+        return
     }
+    
+    // 正常编译流程...
 }
 ```
 
-### 4.3 通信协议设计
+**关键API**：
+- `DumbService.isDumb(project)` - 检查是否在索引中
+- `runWhenSmart { }` - 等待索引完成后执行回调
+- `SwingUtilities.invokeLater { }` - UI线程安全
 
-#### JavaScript → Java 消息格式
+### 4.4 WebGL渲染器（HTML端）✅
 
-```json
-{
-  "type": "error" | "ready" | "pause" | "screenshot" | "state",
-  "payload": {
-    "line": 42,
-    "message": "Compilation error",
-    "file": "shader.frag"
-  }
-}
-```
+#### shadertoy-renderer.html 核心功能
 
-#### Java → JavaScript 命令格式
+1. **WebGL 2.0 初始化**：创建context、canvas管理
+2. **Shader编译系统**：编译vertex/fragment shader，链接program
+3. **Uniform管理**：iTime、iResolution、iFrame等标准uniform
+4. **渲染循环**：requestAnimationFrame驱动的持续渲染
+5. **性能监控**：FPS、Frame Time、Compile Time统计
+6. **错误显示**：Shader编译错误的可视化显示
+
+#### window.loadShader API
 
 ```javascript
-// 更新shader
-window.updateShader({
-    buffers: [...],
-    textures: [...],
-    uniforms: {...}
-});
-
-// 控制命令
-window.executeCommand({
-    command: "pause" | "play" | "reset" | "screenshot",
-    params: {...}
-});
+// 暴露给Java端的API
+window.loadShader = function(fragmentShaderSource) {
+    try {
+        console.log('[WebGL] Starting shader compilation...');
+        const vertexSource = document.getElementById('vertexShader').textContent.trim();
+        
+        // 删除旧的program（如果存在）
+        if (program) {
+            gl.deleteProgram(program);
+        }
+        
+        // 编译新的shader程序
+        program = createProgram(vertexSource, fragmentShaderSource);
+        uniforms = setupUniforms(program);
+        
+        // 重置时间和帧计数器，让动画效果更明显
+        startTime = performance.now();
+        frameCounter = 0;
+        
+        hideError();
+        console.log('[WebGL] Shader loaded and compiled successfully!');
+    } catch (e) {
+        console.error('[WebGL] Failed to load shader:', e);
+        showError(e.message || String(e));
+    }
+};
 ```
-
-### 4.4 VSCode插件关键功能分析
-
-根据shader-toy VSCode插件的实现，以下是关键功能点：
-
-#### WebviewContentProvider 核心逻辑
-
-1. **Shader解析**: 通过`BufferProvider`解析shader代码，识别多pass渲染
-2. **资源管理**: 处理纹理、音频、cubemap等外部资源
-3. **HTML生成**: 使用`WebviewContentAssembler`动态生成包含所有依赖的HTML
-4. **扩展系统**: 通过Extension模式添加各种功能（键盘、音频、uniform等）
-
-#### 需要移植的关键部分
-
-- `BufferProvider`: shader依赖分析
-- `ShaderParser`: GLSL代码解析
-- `webview_base.html`: WebGL渲染模板
-- Extension系统: 功能模块化
 
 ---
 
-## 五、实施步骤
+## 五、实施步骤（当前进度）
 
-### 阶段1: 基础框架 (1-2周)
-
-**任务**:
-1. ✅ 创建`ShadertoyOutputWindow`基础结构
-2. ✅ 集成JCEF浏览器组件
-3. ✅ 实现基本的HTML加载
-4. ✅ 测试WebGL基础渲染
-
-**交付物**:
-- 能在工具窗口中显示静态HTML页面
-- 简单的WebGL三角形渲染示例
-
-### 阶段2: 通信机制 (1周)
+### 阶段1: 基础框架 ✅ **已完成**
 
 **任务**:
-1. ✅ 实现JavaScript↔Java双向通信
-2. ✅ 设计消息协议
-3. ✅ 测试数据传输
+1. ✅ 创建`ShadertoyOutputWindowFactory`基础结构
+2. ✅ 集成JCEF浏览器组件（JCefBrowserComponent）
+3. ✅ 实现HTML加载（shadertoy-renderer.html）
+4. ✅ 测试WebGL 2.0渲染
 
 **交付物**:
-- Java能向JS发送shader代码
-- JS能向Java报告错误和状态
+- ✅ 工具窗口显示WebGL内容
+- ✅ 默认shader自动渲染（彩色渐变动画）
+- ✅ 性能监控（FPS、Frame Time）
 
-### 阶段3: Shader解析和管理 (2-3周)
+### 阶段2: 单文件Compile功能 ✅ **已完成**
 
 **任务**:
-1. ✅ 移植/重写ShaderParser
-2. ✅ 实现BufferProvider
-3. ✅ 支持多pass渲染
-4. ✅ 纹理和资源加载
+1. ✅ 实现Java→JavaScript通信（executeJavaScript）
+2. ✅ 创建ShaderCompileService服务
+3. ✅ 使用VirtualFileSystem读取GLSL文件
+4. ✅ 实现Shader代码包装（添加uniforms和main函数）
+5. ✅ 添加Compile按钮到主窗口
+6. ✅ 处理DumbService（索引问题）
+7. ✅ 自动重试机制（确保window.loadShader可用）
 
 **交付物**:
-- 能解析复杂的shader依赖关系
-- 支持多buffer渲染
-- 能加载外部纹理资源
+- ✅ 用户可编辑`src/main/resources/shaderTemplate/Image.glsl`
+- ✅ 点击Compile按钮实时看到效果
+- ✅ 编译错误在网页上显示
+- ✅ 启动时自动加载shader（等待索引完成）
 
-### 阶段4: 实时更新 (1周)
+### 阶段3: 多Mapping支持 ⏳ **计划中**
 
 **任务**:
-1. ✅ 文件监听器
-2. ✅ 自动刷新机制
-3. ✅ 错误处理和提示
+1. ⏳ 设计Shader Mapping配置系统
+2. ⏳ 实现Mapping管理UI（添加/删除/选择）
+3. ⏳ 持久化存储Mapping配置
+4. ⏳ 参数化文件路径读取
+5. ⏳ 支持同一项目多个shader项目
 
 **交付物**:
-- 修改shader文件自动更新预览
-- 编译错误实时提示
-- 性能优化（防抖动）
+- ⏳ 可配置的Mapping目录
+- ⏳ 下拉框选择不同的Mapping
+- ⏳ 配置保存到项目设置
 
-### 阶段5: 高级功能 (2周)
+### 阶段4: 多文件/多Pass支持 📅 **未来**
 
 **任务**:
-1. ✅ 鼠标/键盘交互
-2. ✅ 截图功能
-3. ✅ 性能优化
-4. ✅ 配置管理
+1. 📅 支持Buffer A/B/C/D多pass渲染
+2. 📅 实现Common.glsl共享代码
+3. 📅 Shader依赖分析
+4. 📅 渲染顺序管理
 
 **交付物**:
-- 完整的用户交互支持
-- 截图和录制功能
-- 性能统计和优化
+- 📅 支持复杂的多pass shader
+- 📅 像真实Shadertoy一样的完整功能
+
+### 阶段5: 高级功能 📅 **未来**
+
+**任务**:
+1. 📅 鼠标交互（iMouse uniform）
+2. 📅 键盘输入
+3. 📅 纹理加载（图片、cubemap）
+4. 📅 音频输入
+5. 📅 截图/录制功能
+6. 📅 自动文件监听（保存时自动编译）
+
+**交付物**:
+- 📅 完整的交互支持
+- 📅 外部资源加载
+- 📅 更流畅的开发体验
+
+---
+
+### 当前状态总结
+
+**✅ 已实现**：
+- 基础WebGL渲染管线
+- 单文件Shader编译
+- 手动Compile触发
+- 实时文件读取（VirtualFileSystem）
+- 错误显示
+- 性能监控
+- DumbService处理
+
+**🚧 正在进行**：
+- 文档更新和完善
+
+**📋 下一步计划**：
+- 多Mapping支持（让用户可以配置不同的shader项目目录）
 
 ---
 
@@ -818,7 +975,91 @@ git clone https://github.com/edenlia/ShadertoyEditor-IntelliJ.git
 
 ---
 
+## 八、使用指南（Quick Start）
+
+### 8.1 开发环境运行
+
+1. **打开项目**
+   ```bash
+   cd ShadertoyEditor-IntelliJ
+   ./gradlew build
+   ./gradlew runIde
+   ```
+
+2. **打开工具窗口**
+   - `View` → `Tool Windows` → `Shadertoy`（主窗口，包含Compile按钮）
+   - `View` → `Tool Windows` → `ShadertoyConsole`（渲染窗口）
+
+3. **编辑Shader**
+   - 打开 `src/main/resources/shaderTemplate/Image.glsl`
+   - 修改 `mainImage` 函数中的代码
+
+4. **编译查看效果**
+   - 点击主窗口中的 **Compile** 按钮
+   - 在 ShadertoyConsole 窗口中查看渲染结果
+
+5. **调试（可选）**
+   - 右键点击 ShadertoyConsole 窗口
+   - 选择 "Open DevTools"（如果可用）
+   - 查看浏览器控制台日志
+
+### 8.2 Shader编写规范
+
+只需在 `Image.glsl` 中编写 `mainImage` 函数：
+
+```glsl
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    // 归一化坐标（0到1）
+    vec2 uv = fragCoord / iResolution.xy;
+    
+    // 你的shader代码
+    vec3 col = vec3(uv.x, uv.y, 0.5);
+    
+    // 输出颜色
+    fragColor = vec4(col, 1.0);
+}
+```
+
+**可用的Uniforms**：
+- `vec3 iResolution` - 视口分辨率（宽，高，像素比）
+- `float iTime` - 播放时间（秒）
+- `float iTimeDelta` - 帧间隔时间（秒）
+- `int iFrame` - 帧计数器
+- `vec4 iMouse` - 鼠标位置（未实现）
+- `vec4 iDate` - 当前日期时间
+
+### 8.3 常见问题
+
+**Q: 修改文件后看不到效果？**  
+A: 确保保存了文件（Ctrl+S / Cmd+S），然后点击 Compile 按钮。
+
+**Q: 启动时显示"视图不可用"？**  
+A: 等待IDE索引构建完成，会自动触发首次编译。
+
+**Q: Shader编译错误在哪看？**  
+A: 错误会直接显示在 ShadertoyConsole 窗口中（红色边框）。
+
+**Q: 如何查看调试日志？**  
+A: 
+1. IDEA日志：`Help` → `Show Log in Finder/Explorer`，搜索"Shadertoy"
+2. 浏览器日志：右键点击渲染窗口 → "Open DevTools" → Console标签
+
+---
+
 **文档维护者**: 项目团队  
-**最后更新**: 2025-11-17  
-**版本**: 1.0.0
+**文档版本**: 2.0.0  
+**最后更新**: 2025-11-18  
+**插件版本**: 0.0.1
+
+### 更新历史
+
+- **2.0.0** (2025-11-18): 重大更新，反映实际实现架构
+  - 更新架构图为当前实现
+  - 更新核心模块代码为实际代码
+  - 添加VirtualFileSystem文件读取说明
+  - 添加DumbService处理说明
+  - 更新实施步骤进度
+  - 添加使用指南和Quick Start
+  
+- **1.0.0** (2025-11-17): 初始设计文档
 

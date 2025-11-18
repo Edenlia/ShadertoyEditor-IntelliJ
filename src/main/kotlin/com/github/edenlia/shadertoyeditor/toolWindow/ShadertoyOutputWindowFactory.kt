@@ -1,5 +1,6 @@
 package com.github.edenlia.shadertoyeditor.toolWindow
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
@@ -7,7 +8,10 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.content.ContentFactory
 import com.github.edenlia.shadertoyeditor.browser.JCefBrowserComponent
+import com.github.edenlia.shadertoyeditor.listeners.ResolutionChangedListener
+import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import javax.swing.JComponent
+import javax.swing.SwingUtilities
 
 
 class ShadertoyOutputWindowFactory : ToolWindowFactory {
@@ -40,6 +44,47 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
         
         init {
             browserComponent = JCefBrowserComponent(project)
+            
+            // 订阅分辨率变更事件
+            subscribeToResolutionChanges()
+            
+            // 初始化时应用当前配置的分辨率
+            applyCurrentResolution()
+        }
+        
+        /**
+         * 订阅分辨率变更事件
+         */
+        private fun subscribeToResolutionChanges() {
+            ApplicationManager.getApplication().messageBus.connect()
+                .subscribe(ResolutionChangedListener.TOPIC, object : ResolutionChangedListener {
+                    override fun onResolutionChanged(width: Int, height: Int) {
+                        // 在UI线程中更新分辨率
+                        SwingUtilities.invokeLater {
+                            updateResolution(width, height)
+                        }
+                    }
+                })
+        }
+        
+        /**
+         * 应用当前配置的分辨率
+         */
+        private fun applyCurrentResolution() {
+            // 延迟执行，确保浏览器完全加载后再设置分辨率
+            SwingUtilities.invokeLater {
+                Thread.sleep(500) // 等待浏览器初始化
+                
+                val config = ShadertoySettings.getInstance().getConfig()
+                updateResolution(config.targetWidth, config.targetHeight)
+            }
+        }
+        
+        /**
+         * 更新分辨率
+         */
+        private fun updateResolution(width: Int, height: Int) {
+            browserComponent.updateTargetResolution(width, height)
         }
         
         /**

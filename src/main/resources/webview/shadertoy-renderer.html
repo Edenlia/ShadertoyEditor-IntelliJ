@@ -18,8 +18,7 @@
         
         #canvas {
             display: block;
-            width: 100vw;
-            height: 100vh;
+            /* 宽高由JavaScript控制，不在CSS中固定 */
         }
         
         /* 性能监控面板 */
@@ -157,10 +156,52 @@ void main() {
         let currentFrameTime = 0;
         
         // ===== Canvas Size Management =====
+        
+        // 目标分辨率（默认值，会被Settings覆盖）
+        let targetWidth = 1280;
+        let targetHeight = 720;
+        
+        /**
+         * 根据目标分辨率和窗口大小计算canvas尺寸
+         * 策略：Always fit（保持aspect ratio，完全显示在窗口内）
+         */
         function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            gl.viewport(0, 0, canvas.width, canvas.height);
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            
+            // 计算aspect ratio
+            const targetAspect = targetWidth / targetHeight;
+            const windowAspect = windowWidth / windowHeight;
+            
+            let canvasWidth, canvasHeight;
+            
+            // 根据窗口和目标的aspect ratio选择适配策略
+            if (windowAspect > targetAspect) {
+                // 窗口更宽，高度受限
+                canvasHeight = windowHeight;
+                canvasWidth = Math.round(windowHeight * targetAspect);
+            } else {
+                // 窗口更高，宽度受限
+                canvasWidth = windowWidth;
+                canvasHeight = Math.round(windowWidth / targetAspect);
+            }
+            
+            // 设置canvas内部分辨率（WebGL渲染分辨率）
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            gl.viewport(0, 0, canvasWidth, canvasHeight);
+            
+            // 设置CSS显示尺寸（1:1匹配像素分辨率）
+            canvas.style.width = canvasWidth + 'px';
+            canvas.style.height = canvasHeight + 'px';
+            
+            // 居中显示
+            canvas.style.position = 'absolute';
+            canvas.style.left = '50%';
+            canvas.style.top = '50%';
+            canvas.style.transform = 'translate(-50%, -50%)';
+            
+            console.log(`[Canvas] Resized to ${canvasWidth}x${canvasHeight} (target: ${targetWidth}x${targetHeight}, window: ${windowWidth}x${windowHeight})`);
         }
         
         window.addEventListener('resize', resizeCanvas);
@@ -340,6 +381,26 @@ void main() {
                 console.error('[WebGL] Failed to load shader:', e);
                 showError(e.message || String(e));
             }
+        };
+        
+        // ===== Public API for Resolution Update =====
+        /**
+         * 设置目标分辨率
+         * 会触发canvas重新计算尺寸
+         * 
+         * @param {number} width - 目标宽度
+         * @param {number} height - 目标高度
+         */
+        window.setTargetResolution = function(width, height) {
+            console.log(`[Resolution] Setting target resolution to ${width}x${height}`);
+            
+            targetWidth = width;
+            targetHeight = height;
+            
+            // 重新计算canvas尺寸
+            resizeCanvas();
+            
+            console.log(`[Resolution] Canvas resized, new size: ${canvas.width}x${canvas.height}`);
         };
         
         // ===== Initialize and Start =====

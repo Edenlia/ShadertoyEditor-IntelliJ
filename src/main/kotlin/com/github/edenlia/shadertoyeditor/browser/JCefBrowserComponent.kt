@@ -129,6 +129,35 @@ class JCefBrowserComponent(
     }
     
     /**
+     * 更新目标分辨率
+     * 通过JavaScript调用HTML端的setTargetResolution函数
+     * 
+     * @param width 目标宽度
+     * @param height 目标高度
+     */
+    fun updateTargetResolution(width: Int, height: Int) {
+        val jsCode = """
+            (function() {
+                console.log('[Shadertoy] Updating target resolution to ${width}x${height}');
+                
+                function tryUpdateResolution() {
+                    if (typeof window.setTargetResolution === 'function') {
+                        window.setTargetResolution($width, $height);
+                        console.log('[Shadertoy] Resolution updated successfully!');
+                    } else {
+                        console.warn('[Shadertoy] window.setTargetResolution not ready, retrying in 100ms...');
+                        setTimeout(tryUpdateResolution, 100);
+                    }
+                }
+                
+                tryUpdateResolution();
+            })();
+        """.trimIndent()
+        
+        executeJavaScript(jsCode)
+    }
+    
+    /**
      * 释放浏览器资源
      */
     override fun dispose() {

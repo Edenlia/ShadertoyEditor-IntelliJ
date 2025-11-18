@@ -16,6 +16,18 @@ data class ShadertoyConfig(
     var password: String = "",
     
     /**
+     * 目标渲染分辨率 - 宽度
+     * 范围：64-4096
+     */
+    var targetWidth: Int = 1280,
+    
+    /**
+     * 目标渲染分辨率 - 高度
+     * 范围：64-4096
+     */
+    var targetHeight: Int = 720,
+    
+    /**
      * 配置版本号（用于未来升级）
      */
     var version: Int = 1

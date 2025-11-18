@@ -13,39 +13,79 @@ import javax.swing.JComponent
  */
 class ShadertoySettingsUI {
     
-    // UI 组件
+    // UI 组件 - Login部分
     private val usernameField = JBTextField()
     private val passwordField = JBPasswordField()
+    
+    // UI 组件 - 分辨率设置
+    private val targetWidthField = JBTextField()
+    private val targetHeightField = JBTextField()
     
     /**
      * 主面板 - 使用 Kotlin UI DSL 构建
      */
     private val mainPanel: DialogPanel = panel {
-        // Row 1: Username 和 Password 在同一行
-        row {
-            // Username 部分（左半部分）
-            label("Username:")
-                .gap(RightGap.SMALL)
-            cell(usernameField)
-                .resizableColumn()
-                .align(AlignX.FILL)
+        // ===== Login Section =====
+        group("Login Settings (暂不维护)") {
+            // Row 1: Username 和 Password 在同一行
+            row {
+                // Username 部分（左半部分）
+                label("Username:")
+                    .gap(RightGap.SMALL)
+                cell(usernameField)
+                    .resizableColumn()
+                    .align(AlignX.FILL)
 
-            // Password 部分（右半部分）
-            label("Password:")
-                .gap(RightGap.SMALL)
-            cell(passwordField)
-                .resizableColumn()
-                .align(AlignX.FILL)
+                // Password 部分（右半部分）
+                label("Password:")
+                    .gap(RightGap.SMALL)
+                cell(passwordField)
+                    .resizableColumn()
+                    .align(AlignX.FILL)
+            }
+            
+            // Row 2: 空行（增加间距）
+            row { }
+            
+            // Row 3: Login 按钮（居中）
+            row {
+                button("Login") {
+                    onLoginClick()
+                }.align(AlignX.CENTER)
+            }
         }
         
-        // Row 2: 空行（增加间距）
+        // ===== 分隔空间 =====
         row { }
         
-        // Row 3: Login 按钮（居中）
-        row {
-            button("Login") {
-                onLoginClick()
-            }.align(AlignX.CENTER)
+        // ===== Target Resolution Section =====
+        group("Target Resolution") {
+            row {
+                label("设置目标渲染分辨率（Apply后立即生效）")
+                    .bold()
+            }
+            
+            row {
+                label("Width:")
+                    .gap(RightGap.SMALL)
+                cell(targetWidthField)
+                    .columns(10)
+                    .validationOnApply { field ->
+                        validateResolutionField(field.text, "宽度")
+                    }
+                
+                label("Height:")
+                    .gap(RightGap.SMALL)
+                cell(targetHeightField)
+                    .columns(10)
+                    .validationOnApply { field ->
+                        validateResolutionField(field.text, "高度")
+                    }
+            }
+            
+            row {
+                comment("范围：64-4096，默认：1280x720")
+            }
         }
     }
     
@@ -65,6 +105,37 @@ class ShadertoySettingsUI {
     }
     
     /**
+     * 验证分辨率字段
+     */
+    private fun validateResolutionField(text: String, fieldName: String): com.intellij.openapi.ui.ValidationInfo? {
+        // 检查是否为空
+        if (text.isBlank()) {
+            return com.intellij.openapi.ui.ValidationInfo("${fieldName}不能为空")
+        }
+        
+        // 检查是否为数字
+        val value = text.toIntOrNull()
+        if (value == null) {
+            return com.intellij.openapi.ui.ValidationInfo("${fieldName}必须是整数")
+        }
+        
+        // 检查范围
+        if (value <= 0) {
+            return com.intellij.openapi.ui.ValidationInfo("${fieldName}必须大于0")
+        }
+        
+        if (value < 64) {
+            return com.intellij.openapi.ui.ValidationInfo("${fieldName}不能小于64")
+        }
+        
+        if (value > 4096) {
+            return com.intellij.openapi.ui.ValidationInfo("${fieldName}不能大于4096")
+        }
+        
+        return null
+    }
+    
+    /**
      * 获取主面板
      */
     fun getPanel(): JComponent = mainPanel
@@ -73,8 +144,13 @@ class ShadertoySettingsUI {
      * 检查配置是否被修改
      */
     fun isModified(config: ShadertoyConfig): Boolean {
+        val widthModified = targetWidthField.text.toIntOrNull() != config.targetWidth
+        val heightModified = targetHeightField.text.toIntOrNull() != config.targetHeight
+        
         return usernameField.text != config.username ||
-                String(passwordField.password) != config.password
+                String(passwordField.password) != config.password ||
+                widthModified ||
+                heightModified
     }
     
     /**
@@ -83,6 +159,10 @@ class ShadertoySettingsUI {
     fun apply(config: ShadertoyConfig) {
         config.username = usernameField.text
         config.password = String(passwordField.password)
+        
+        // 保存分辨率（已通过验证）
+        config.targetWidth = targetWidthField.text.toIntOrNull() ?: 1280
+        config.targetHeight = targetHeightField.text.toIntOrNull() ?: 720
     }
     
     /**
@@ -91,6 +171,10 @@ class ShadertoySettingsUI {
     fun reset(config: ShadertoyConfig) {
         usernameField.text = config.username
         passwordField.text = config.password
+        
+        // 加载分辨率
+        targetWidthField.text = config.targetWidth.toString()
+        targetHeightField.text = config.targetHeight.toString()
     }
 }
 
