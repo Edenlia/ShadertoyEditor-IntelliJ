@@ -1,5 +1,6 @@
 package com.github.edenlia.shadertoyeditor.renderBackend.impl.lwjgl
 
+import com.intellij.openapi.diagnostic.thisLogger
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL30.*
@@ -32,11 +33,11 @@ class GLContext(initialWidth: Int, initialHeight: Int) {
      * 注意：这个方法必须在主线程调用！
      */
     fun initialize() {
-        println("[LWJGL] Initializing OpenGL context on thread: ${Thread.currentThread().name}")
+        thisLogger().info("[LWJGL] Initializing OpenGL context on thread: ${Thread.currentThread().name}")
         
         // 检查是否在EDT线程（主线程）
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) {
-            println("[LWJGL] WARNING: initialize() called from non-EDT thread")
+            thisLogger().warn("[LWJGL] initialize() called from non-EDT thread")
         }
         
         // 1. 初始化GLFW（必须在主线程）
@@ -53,7 +54,7 @@ class GLContext(initialWidth: Int, initialHeight: Int) {
         val os = System.getProperty("os.name").lowercase()
         if (os.contains("mac")) {
             glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE)
-            println("[LWJGL] Detected macOS, enabled forward compatibility")
+            thisLogger().info("[LWJGL] Detected macOS, enabled forward compatibility")
         }
         
         // 3. 创建不可见窗口（用于offscreen渲染）
