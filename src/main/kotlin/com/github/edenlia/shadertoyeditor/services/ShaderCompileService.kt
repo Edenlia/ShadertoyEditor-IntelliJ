@@ -49,7 +49,7 @@ class ShaderCompileService(private val project: Project) {
      */
     private fun wrapShaderCode(userGlslCode: String): String {
         return """
-#version 300 es
+#version 330 core
 precision highp float;
 
 uniform vec3 iResolution;
