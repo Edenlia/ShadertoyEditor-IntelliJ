@@ -12,8 +12,15 @@ enum class RenderBackendType {
     
     /**
      * LWJGL3 + Native OpenGL
-     * 高性能（120fps+），需要OpenGL 3.3+支持
+     * 高性能（120fps+），但macOS有线程限制问题
      */
-    LWJGL
+    LWJGL,
+    
+    /**
+     * JOGL (Java OpenGL) + GLCanvas
+     * 高性能（120fps+），无线程限制，支持所有平台
+     * 推荐使用
+     */
+    JOGL
 }
 

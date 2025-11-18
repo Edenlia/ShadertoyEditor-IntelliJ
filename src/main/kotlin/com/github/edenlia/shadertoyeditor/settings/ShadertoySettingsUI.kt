@@ -23,7 +23,7 @@ class ShadertoySettingsUI {
     private val targetHeightField = JBTextField()
     
     // UI 组件 - Backend选择
-    private val backendComboBox = ComboBox(arrayOf("JCEF", "LWJGL"))
+    private val backendComboBox = ComboBox(arrayOf("JCEF", "LWJGL", "JOGL"))
     
     /**
      * 主面板 - 使用 Kotlin UI DSL 构建
