@@ -33,6 +33,10 @@ class JCefBrowserComponent(
         // 创建浏览器实例
         browser = JBCefBrowser()
         
+        // 启用开发者工具（用于调试）
+        // 右键点击网页 -> "Open DevTools" 可以查看控制台日志
+        browser.jbCefClient.setProperty("remote_debugging_port", "9222")
+        
         // 设置生命周期管理
         Disposer.register(project, this)
         
@@ -73,6 +77,55 @@ class JCefBrowserComponent(
      */
     fun getComponent(): JComponent {
         return browser.component
+    }
+    
+    /**
+     * 执行JavaScript代码
+     * 
+     * @param jsCode 要执行的JavaScript代码
+     */
+    fun executeJavaScript(jsCode: String) {
+        browser.cefBrowser.executeJavaScript(jsCode, browser.cefBrowser.url, 0)
+    }
+    
+    /**
+     * 加载shader代码到WebGL渲染器
+     * 
+     * @param fragmentShaderSource 完整的fragment shader源代码
+     */
+    fun loadShaderCode(fragmentShaderSource: String) {
+        // 转义特殊字符，使用模板字符串
+        val escapedCode = fragmentShaderSource
+            .replace("\\", "\\\\")
+            .replace("`", "\\`")
+            .replace("$", "\\$")
+        
+        // 调用网页中的 window.loadShader 函数
+        // 使用 setTimeout 确保在浏览器完全加载后执行
+        val jsCode = """
+            (function() {
+                console.log('[Shadertoy] Attempting to load shader...');
+                
+                function tryLoadShader() {
+                    if (typeof window.loadShader === 'function') {
+                        console.log('[Shadertoy] window.loadShader found, loading shader...');
+                        try {
+                            window.loadShader(`$escapedCode`);
+                            console.log('[Shadertoy] Shader loaded and compiled successfully!');
+                        } catch (e) {
+                            console.error('[Shadertoy] Failed to load shader:', e);
+                        }
+                    } else {
+                        console.warn('[Shadertoy] window.loadShader not ready, retrying in 100ms...');
+                        setTimeout(tryLoadShader, 100);
+                    }
+                }
+                
+                tryLoadShader();
+            })();
+        """.trimIndent()
+        
+        executeJavaScript(jsCode)
     }
     
     /**

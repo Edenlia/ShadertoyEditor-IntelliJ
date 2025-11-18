@@ -317,13 +317,28 @@ void main() {
         // ===== Public API for Dynamic Shader Loading =====
         window.loadShader = function(fragmentShaderSource) {
             try {
+                console.log('[WebGL] Starting shader compilation...');
                 const vertexSource = document.getElementById('vertexShader').textContent.trim();
+                
+                // 删除旧的program（如果存在）
+                if (program) {
+                    gl.deleteProgram(program);
+                }
+                
+                // 编译新的shader程序
                 program = createProgram(vertexSource, fragmentShaderSource);
                 uniforms = setupUniforms(program);
+                
+                // 重置时间和帧计数器，让动画效果更明显
+                startTime = performance.now();
+                frameCounter = 0;
+                
                 hideError();
-                console.log('Shader loaded successfully');
+                console.log('[WebGL] Shader loaded and compiled successfully!');
+                console.log('[WebGL] Animation restarted from time 0');
             } catch (e) {
-                console.error('Failed to load shader:', e);
+                console.error('[WebGL] Failed to load shader:', e);
+                showError(e.message || String(e));
             }
         };
         
