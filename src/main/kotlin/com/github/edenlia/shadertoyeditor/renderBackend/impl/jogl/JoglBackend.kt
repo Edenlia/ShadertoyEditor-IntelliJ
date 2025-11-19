@@ -11,8 +11,14 @@ import com.jogamp.opengl.awt.GLCanvas
 import com.jogamp.opengl.util.FPSAnimator
 import java.awt.BorderLayout
 import java.awt.Color
+import java.awt.Dimension
+import java.awt.FlowLayout
+import java.awt.GridBagConstraints
+import java.awt.GridBagLayout
 import java.util.Calendar
 import javax.swing.*
+import javax.swing.border.Border
+import kotlin.math.max
 
 /**
  * JOGL OpenGL 渲染后端
@@ -29,6 +35,7 @@ import javax.swing.*
  */
 class JoglBackend(private val project: Project, private val outerComponent: JComponent) : RenderBackend, GLEventListener {
 
+    private val rootPanel: JPanel
     private val renderPanel: JPanel
     private val statusLabel: JLabel
     private var glCanvas: GLCanvas? = null
@@ -65,11 +72,34 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
             foreground = Color.WHITE
         }
 
+        calculateRealCanvasResolution()
+
         // 创建面板
-        renderPanel = JPanel(BorderLayout()).apply {
+        rootPanel = JPanel(GridBagLayout()).apply {
             background = Color.BLACK
-            add(statusLabel, BorderLayout.SOUTH)
         }
+
+        renderPanel = JPanel(BorderLayout())
+        renderPanel.preferredSize = Dimension(realCanvasWidth, realCanvasHeight)
+
+        val gbc = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            weightx = 1.0
+            weighty = 1.0
+            anchor = GridBagConstraints.CENTER
+            fill = GridBagConstraints.NONE
+        }
+
+        rootPanel.add(renderPanel, gbc)
+
+//        rootPanel = JPanel(BorderLayout()).apply {
+//            background = Color.BLACK
+////            add(renderPanel, gbc)
+//            add(statusLabel, BorderLayout.WEST)
+//        }
+
+
 
         // 在EDT初始化JOGL
         SwingUtilities.invokeLater {
@@ -188,7 +218,7 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
 
     // ===== RenderBackend 接口实现 =====
 
-    override fun getComponent(): JComponent = renderPanel
+    override fun getRootComponent(): JComponent = rootPanel
     override fun getOuterComponent(): JComponent {
         return outerComponent
     }
@@ -260,39 +290,18 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
 
     override fun updateOuterResolution(width: Int, height: Int) {
         SwingUtilities.invokeLater {
-            // 1. 获取 ToolWindow 的实际尺寸
-            val toolWindowWidth = width
-            val toolWindowHeight = height
 
-            // 2. 检查有效性
-            if (toolWindowWidth <= 0 || toolWindowHeight <= 0) {
-                thisLogger().warn("[JOGL] ToolWindow size not ready: ${toolWindowWidth}x${toolWindowHeight}, skipping resize")
-                return@invokeLater
-            }
+            calculateRealCanvasResolution()
 
-            // 3. 计算 aspect ratio
-            val refAspect = ShadertoySettings.getInstance().getConfig().canvasRefWidth.toFloat() /
-                    ShadertoySettings.getInstance().getConfig().canvasRefHeight.toFloat()
-            val windowAspect = toolWindowWidth.toFloat() / toolWindowHeight.toFloat()
+            renderPanel.preferredSize = Dimension(realCanvasWidth, realCanvasHeight)
 
-            // 4. 按长边适配，计算真实渲染分辨率（参考 shadertoy-renderer.html 的 resizeCanvas 逻辑）
-            if (windowAspect > refAspect) {
-                // 窗口更宽，高度受限
-                realCanvasHeight = toolWindowHeight
-                realCanvasWidth = (toolWindowHeight * refAspect).toInt()
-            } else {
-                // 窗口更高，宽度受限
-                realCanvasWidth = toolWindowWidth
-                realCanvasHeight = (toolWindowWidth / refAspect).toInt()
-            }
-
-            // 5. 设置 GLCanvas 大小
+            // 设置 GLCanvas 大小
             glCanvas?.apply {
                 preferredSize = java.awt.Dimension(realCanvasWidth, realCanvasHeight)
                 size = java.awt.Dimension(realCanvasWidth, realCanvasHeight)
             }
 
-            // 6. 在 OpenGL 线程中更新 viewport
+            // 在 OpenGL 线程中更新 viewport
             glCanvas?.invoke(false) { drawable ->
                 val gl = drawable.gl.gL3
                 gl.glViewport(0, 0, realCanvasWidth, realCanvasHeight)
@@ -304,6 +313,28 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
             renderPanel.repaint()
 
             statusLabel.text = "Real canvas size - ${realCanvasWidth}x${realCanvasHeight} (tool window size: ${width}x${height})"
+        }
+    }
+
+    fun calculateRealCanvasResolution()
+    {
+        val refCanvasWidth = ShadertoySettings.getInstance().getConfig().canvasRefWidth
+        val refCanvasHeight = ShadertoySettings.getInstance().getConfig().canvasRefHeight
+
+        val toolWindowWidth = max(outerComponent.width, 1)
+        val toolWindowHeight = max(outerComponent.height, 1)
+
+        val refAspect = refCanvasWidth.toFloat() / refCanvasHeight.toFloat()
+        val windowAspect = toolWindowWidth.toFloat() / toolWindowHeight.toFloat()
+
+        if (windowAspect > refAspect) {
+            // 窗口更宽，高度受限
+            realCanvasHeight = toolWindowHeight
+            realCanvasWidth = (toolWindowHeight * refAspect).toInt()
+        } else {
+            // 窗口更高，宽度受限
+            realCanvasWidth = toolWindowWidth
+            realCanvasHeight = (toolWindowWidth / refAspect).toInt()
         }
     }
 

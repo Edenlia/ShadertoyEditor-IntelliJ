@@ -14,12 +14,17 @@ import javax.swing.JComponent
 interface RenderBackend : Disposable {
     
     /**
-     * 获取可嵌入Swing容器的渲染组件
+     * 直接嵌在ToolWindow Component中的根Component
      * 
      * @return JComponent 渲染视图组件
      */
-    fun getComponent(): JComponent
+    fun getRootComponent(): JComponent
 
+    /**
+     * ToolWindow的Component
+     *
+     * @return JComponent 渲染视图组件
+     */
     fun getOuterComponent(): JComponent
     
     /**

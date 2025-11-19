@@ -100,7 +100,7 @@ class LwjglBackend(private val project: Project, private val outerComponent: JCo
         println("[LWJGL] OpenGL initialized successfully")
     }
 
-    override fun getComponent(): JComponent = renderPanel
+    override fun getRootComponent(): JComponent = renderPanel
     override fun getOuterComponent(): JComponent {
         return outerComponent
     }

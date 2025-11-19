@@ -78,7 +78,7 @@ class JCefBackend(
      *
      * @return JComponent 可以添加到Swing容器中的组件
      */
-    override fun getComponent(): JComponent {
+    override fun getRootComponent(): JComponent {
         return browser.component
     }
 

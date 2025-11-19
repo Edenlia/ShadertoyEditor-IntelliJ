@@ -132,7 +132,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          * 获取窗口内容组件
          */
         fun getContent(): JComponent {
-            return renderBackend.getComponent()
+            return renderBackend.getRootComponent()
         }
         
         /**
