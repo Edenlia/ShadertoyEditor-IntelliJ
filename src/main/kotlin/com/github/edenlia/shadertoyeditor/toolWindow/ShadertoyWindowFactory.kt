@@ -278,68 +278,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
          * 编译按钮点击
          */
         private fun onCompile() {
-            val currentProject = projectManager.getCurrentProject()
-            if (currentProject == null) {
-                // 友好提示
-                Messages.showWarningDialog(
-                    project,
-                    "Please activate a Shadertoy project first by double-clicking it",
-                    "No Project Activated"
-                )
-                return
-            }
-            
-            compileShader()
-        }
-        
-        /**
-         * 编译并加载shader到渲染器
-         */
-        private fun compileShader() {
-            val currentProject = projectManager.getCurrentProject()
-            if (currentProject == null) {
-                return
-            }
-            
-            // 检查是否处于索引构建模式
-            if (DumbService.isDumb(project)) {
-                thisLogger().info("[ShadertoyWindow] Cannot compile shader during indexing, will retry when indexing is complete")
-                // 等待索引完成后再执行
-                DumbService.getInstance(project).runWhenSmart {
-                    compileShader()
-                }
-                return
-            }
-            
-            try {
-                // 获取 ShadertoyOutput 窗口实例
-                val outputWindow = ShadertoyOutputWindowFactory.getInstance(project)
-                if (outputWindow == null) {
-                    thisLogger().warn("[ShadertoyWindow] ShadertoyConsole window not found")
-                    Messages.showWarningDialog(
-                        project,
-                        "Please open the ShadertoyConsole window first",
-                        "Window Not Found"
-                    )
-                    return
-                }
-                
-                // 编译shader代码
-                val shaderCode = shaderCompileService.compileProject(currentProject)
-                
-                // 加载到渲染后端
-                outputWindow.getRenderBackend().loadShader(shaderCode)
-                
-                thisLogger().info("[ShadertoyWindow] Shader compiled and loaded successfully: ${currentProject.name}")
-                
-            } catch (e: Exception) {
-                thisLogger().error("[ShadertoyWindow] Failed to compile shader", e)
-                Messages.showErrorDialog(
-                    project,
-                    "Compilation failed: ${e.message}",
-                    "Shader Compilation Error"
-                )
-            }
+            shaderCompileService.compileShadertoyProject()
         }
     }
 }

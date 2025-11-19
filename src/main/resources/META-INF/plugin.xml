@@ -29,5 +29,16 @@
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl H"/>
         </action>
+        
+        <!-- 编译Shadertoy项目 -->
+        <action id="ShadertoyEditor.CompileShader" 
+                class="com.github.edenlia.shadertoyeditor.actions.CompileShadertoyAction"
+                text="Compile Shadertoy Project"
+                description="Compile the current active Shadertoy project">
+            <!-- Mac: Command+Control+R -->
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="control meta 2"/>
+            <!-- Windows/Linux: Control+Alt+R -->
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt 2"/>
+        </action>
     </actions>
 </idea-plugin>
