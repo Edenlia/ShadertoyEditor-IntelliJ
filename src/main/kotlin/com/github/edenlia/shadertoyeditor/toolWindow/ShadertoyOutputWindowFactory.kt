@@ -12,7 +12,10 @@ import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
 import com.github.edenlia.shadertoyeditor.renderBackend.impl.lwjgl.LwjglBackend
 import com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl.JoglBackend
 import com.github.edenlia.shadertoyeditor.listeners.RefCanvasResolutionChangedListener
+import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
+import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
+import com.intellij.openapi.diagnostic.thisLogger
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 
@@ -63,6 +66,9 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
             // 订阅参考分辨率变更事件（Settings 修改时）
             messageBusConnection = subscribeToRefCanvasResolutionChanges()
             
+            // 订阅项目切换事件
+            subscribeToProjectChanges()
+            
             // 监听 ToolWindow 尺寸变化
             subscribeToToolWindowResize()
             
@@ -93,6 +99,49 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          */
         private fun updateRefCanvasResolution(width: Int, height: Int) {
             renderBackend.updateRefCanvasResolution(width, height)
+        }
+        
+        /**
+         * 订阅项目切换事件
+         */
+        private fun subscribeToProjectChanges() {
+            messageBusConnection.subscribe(
+                ShadertoyProjectChangedListener.TOPIC,
+                object : ShadertoyProjectChangedListener {
+                    override fun onProjectChanged(project: ShadertoyProject?) {
+                        if (project == null) {
+                            // 清空渲染 - 显示空白
+                            clearRender()
+                            thisLogger().info("[ShadertoyOutputWindow] Project cleared, showing blank")
+                        } else {
+                            thisLogger().info("[ShadertoyOutputWindow] Project changed to: ${project.name}")
+                            // 有项目选中时，不做任何操作，等待用户点击Compile
+                        }
+                    }
+                }
+            )
+        }
+        
+        /**
+         * 清空渲染内容
+         */
+        private fun clearRender() {
+            // 加载一个空shader，显示深灰色背景
+            val emptyShader = """
+                #version 330 core
+                precision highp float;
+                out vec4 fragColor;
+                
+                void main() {
+                    fragColor = vec4(0.15, 0.15, 0.15, 1.0); // 深灰色背景
+                }
+            """.trimIndent()
+            
+            try {
+                renderBackend.loadShader(emptyShader)
+            } catch (e: Exception) {
+                thisLogger().warn("[ShadertoyOutputWindow] Failed to load empty shader", e)
+            }
         }
         
         /**

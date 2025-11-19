@@ -50,6 +50,9 @@ dependencies {
         testFramework(TestFrameworkType.Platform)
     }
     
+    // SnakeYAML for configuration file management
+    implementation("org.yaml:snakeyaml:2.2")
+    
     // LWJGL3 - High performance OpenGL rendering
     val lwjglVersion = "3.3.3"
     val lwjglNatives = when {
