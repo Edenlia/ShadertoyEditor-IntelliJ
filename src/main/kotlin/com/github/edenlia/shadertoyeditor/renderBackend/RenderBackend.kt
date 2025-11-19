@@ -19,6 +19,8 @@ interface RenderBackend : Disposable {
      * @return JComponent 渲染视图组件
      */
     fun getComponent(): JComponent
+
+    fun getOuterComponent(): JComponent
     
     /**
      * 加载并编译Shader代码
@@ -29,11 +31,13 @@ interface RenderBackend : Disposable {
     fun loadShader(fragmentShaderSource: String)
     
     /**
-     * 更新渲染目标分辨率
+     * 更新settings中设置的ref canvas的大小
      * 
      * @param width 目标宽度（像素）
      * @param height 目标高度（像素）
      */
-    fun setResolution(width: Int, height: Int)
+    fun updateRefCanvasResolution(width: Int, height: Int)
+
+    fun updateOuterResolution(width: Int, height: Int)
 }
 

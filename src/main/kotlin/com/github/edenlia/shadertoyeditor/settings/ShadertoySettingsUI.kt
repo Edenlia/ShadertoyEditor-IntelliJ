@@ -170,8 +170,8 @@ class ShadertoySettingsUI {
      * 检查配置是否被修改
      */
     fun isModified(config: ShadertoyConfig): Boolean {
-        val widthModified = targetWidthField.text.toIntOrNull() != config.targetWidth
-        val heightModified = targetHeightField.text.toIntOrNull() != config.targetHeight
+        val widthModified = targetWidthField.text.toIntOrNull() != config.canvasRefWidth
+        val heightModified = targetHeightField.text.toIntOrNull() != config.canvasRefHeight
         val backendModified = (backendComboBox.selectedItem as? String) != config.backendType
         
         return usernameField.text != config.username ||
@@ -189,8 +189,8 @@ class ShadertoySettingsUI {
         config.password = String(passwordField.password)
         
         // 保存分辨率（已通过验证）
-        config.targetWidth = targetWidthField.text.toIntOrNull() ?: 1280
-        config.targetHeight = targetHeightField.text.toIntOrNull() ?: 720
+        config.canvasRefWidth = targetWidthField.text.toIntOrNull() ?: 1280
+        config.canvasRefHeight = targetHeightField.text.toIntOrNull() ?: 720
         
         // 保存Backend类型
         config.backendType = (backendComboBox.selectedItem as? String) ?: "JCEF"
@@ -204,8 +204,8 @@ class ShadertoySettingsUI {
         passwordField.text = config.password
         
         // 加载分辨率
-        targetWidthField.text = config.targetWidth.toString()
-        targetHeightField.text = config.targetHeight.toString()
+        targetWidthField.text = config.canvasRefWidth.toString()
+        targetHeightField.text = config.canvasRefHeight.toString()
         
         // 加载Backend类型
         backendComboBox.selectedItem = config.backendType

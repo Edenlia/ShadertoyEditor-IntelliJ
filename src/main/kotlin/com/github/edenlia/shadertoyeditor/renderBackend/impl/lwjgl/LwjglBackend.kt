@@ -19,7 +19,7 @@ import javax.swing.*
  *
  * @param project 当前项目实例
  */
-class LwjglBackend(private val project: Project) : RenderBackend {
+class LwjglBackend(private val project: Project, private val outerComponent: JComponent) : RenderBackend {
 
     private val renderPanel: JPanel
     private val imageLabel: JLabel
@@ -52,7 +52,7 @@ class LwjglBackend(private val project: Project) : RenderBackend {
         statusLabel = JLabel("Initializing LWJGL...", SwingConstants.CENTER).apply {
             foreground = Color.WHITE
         }
-        
+
         renderPanel = JPanel(BorderLayout()).apply {
             background = Color.BLACK
             add(imageLabel, BorderLayout.CENTER)
@@ -101,6 +101,9 @@ class LwjglBackend(private val project: Project) : RenderBackend {
     }
 
     override fun getComponent(): JComponent = renderPanel
+    override fun getOuterComponent(): JComponent {
+        return outerComponent
+    }
 
     override fun loadShader(fragmentShaderSource: String) {
         if (!initialized) {
@@ -144,7 +147,7 @@ class LwjglBackend(private val project: Project) : RenderBackend {
         )
     }
 
-    override fun setResolution(width: Int, height: Int) {
+    override fun updateRefCanvasResolution(width: Int, height: Int) {
         if (!initialized) {
             println("[LWJGL] Cannot set resolution: not initialized yet")
             // 保存目标分辨率，等初始化完成后应用
@@ -176,6 +179,10 @@ class LwjglBackend(private val project: Project) : RenderBackend {
                 statusLabel.foreground = Color.RED
             }
         }
+    }
+
+    override fun updateOuterResolution(width: Int, height: Int) {
+        TODO("Not yet implemented")
     }
 
     override fun dispose() {

@@ -6,7 +6,7 @@ import com.intellij.util.messages.Topic
  * 分辨率变更监听器
  * 当用户在Settings中修改目标分辨率并Apply时触发
  */
-interface ResolutionChangedListener {
+interface RefCanvasResolutionChangedListener {
     
     /**
      * 分辨率变更事件
@@ -14,7 +14,7 @@ interface ResolutionChangedListener {
      * @param width 新的目标宽度
      * @param height 新的目标高度
      */
-    fun onResolutionChanged(width: Int, height: Int)
+    fun onRefCanvasResolutionChanged(width: Int, height: Int)
     
     companion object {
         /**
@@ -23,7 +23,7 @@ interface ResolutionChangedListener {
          */
         val TOPIC = Topic.create(
             "Shadertoy Resolution Changed",
-            ResolutionChangedListener::class.java
+            RefCanvasResolutionChangedListener::class.java
         )
     }
 }

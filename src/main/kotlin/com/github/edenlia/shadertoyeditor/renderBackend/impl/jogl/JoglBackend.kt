@@ -1,6 +1,8 @@
 package com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl
 
+import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
+import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
@@ -25,7 +27,7 @@ import javax.swing.*
  *
  * @param project 当前项目实例
  */
-class JoglBackend(private val project: Project) : RenderBackend, GLEventListener {
+class JoglBackend(private val project: Project, private val outerComponent: JComponent) : RenderBackend, GLEventListener {
 
     private val renderPanel: JPanel
     private val statusLabel: JLabel
@@ -45,9 +47,9 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     private var lastFrameTime = startTime
     private var frameCount = 0
 
-    // 分辨率
-    private var targetWidth = 1280
-    private var targetHeight = 720
+    // 真实渲染分辨率（动态计算得出）
+    private var realCanvasWidth = 1
+    private var realCanvasHeight = 1
 
     @Volatile
     private var initialized = false
@@ -92,7 +94,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
             // 创建GLCanvas
             glCanvas = GLCanvas(glCapabilities).apply {
                 addGLEventListener(this@JoglBackend)
-                preferredSize = java.awt.Dimension(targetWidth, targetHeight)
+                preferredSize = java.awt.Dimension(realCanvasWidth, realCanvasHeight)
             }
 
             // 添加到面板
@@ -162,9 +164,9 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     }
 
     override fun reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {
-        val gl = drawable.gl.gL3
-        gl.glViewport(0, 0, width, height)
-        thisLogger().info("[JOGL] Viewport resized to ${width}x${height}")
+        // 空实现 - 所有分辨率计算在 setResolution() 中处理
+        // reshape 由 GLCanvas 自动调用，但我们不在这里处理逻辑
+        thisLogger().info("[JOGL] reshape() called: ${width}x${height}")
     }
 
     override fun dispose(drawable: GLAutoDrawable) {
@@ -187,6 +189,9 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     // ===== RenderBackend 接口实现 =====
 
     override fun getComponent(): JComponent = renderPanel
+    override fun getOuterComponent(): JComponent {
+        return outerComponent
+    }
 
     override fun loadShader(fragmentShaderSource: String) {
         if (!initialized) {
@@ -220,7 +225,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
                 shaderCompiled = true
 
                 SwingUtilities.invokeLater {
-                    statusLabel.text = "Shader running - ${targetWidth}x${targetHeight}"
+                    statusLabel.text = "Shader running - ${realCanvasWidth}x${realCanvasHeight}"
                     statusLabel.foreground = JBColor.GREEN
                 }
 
@@ -247,17 +252,58 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
         }
     }
 
-    override fun setResolution(width: Int, height: Int) {
-        targetWidth = width
-        targetHeight = height
+    override fun updateRefCanvasResolution(width: Int, height: Int) {
 
+        // 在updateOuterResolution中会自动应用refcanvas, 直接调用即可
+        updateOuterResolution(outerComponent.width, outerComponent.height)
+    }
+
+    override fun updateOuterResolution(width: Int, height: Int) {
         SwingUtilities.invokeLater {
-            glCanvas?.preferredSize = java.awt.Dimension(width, height)
-            glCanvas?.size = java.awt.Dimension(width, height)
-            renderPanel.revalidate()
+            // 1. 获取 ToolWindow 的实际尺寸
+            val toolWindowWidth = width
+            val toolWindowHeight = height
 
-            statusLabel.text = "Shader running - ${width}x${height}"
-            thisLogger().info("[JOGL] Resolution set to ${width}x${height}")
+            // 2. 检查有效性
+            if (toolWindowWidth <= 0 || toolWindowHeight <= 0) {
+                thisLogger().warn("[JOGL] ToolWindow size not ready: ${toolWindowWidth}x${toolWindowHeight}, skipping resize")
+                return@invokeLater
+            }
+
+            // 3. 计算 aspect ratio
+            val refAspect = ShadertoySettings.getInstance().getConfig().canvasRefWidth.toFloat() /
+                    ShadertoySettings.getInstance().getConfig().canvasRefHeight.toFloat()
+            val windowAspect = toolWindowWidth.toFloat() / toolWindowHeight.toFloat()
+
+            // 4. 按长边适配，计算真实渲染分辨率（参考 shadertoy-renderer.html 的 resizeCanvas 逻辑）
+            if (windowAspect > refAspect) {
+                // 窗口更宽，高度受限
+                realCanvasHeight = toolWindowHeight
+                realCanvasWidth = (toolWindowHeight * refAspect).toInt()
+            } else {
+                // 窗口更高，宽度受限
+                realCanvasWidth = toolWindowWidth
+                realCanvasHeight = (toolWindowWidth / refAspect).toInt()
+            }
+
+            // 5. 设置 GLCanvas 大小
+            glCanvas?.apply {
+                preferredSize = java.awt.Dimension(realCanvasWidth, realCanvasHeight)
+                size = java.awt.Dimension(realCanvasWidth, realCanvasHeight)
+            }
+
+            // 6. 在 OpenGL 线程中更新 viewport
+            glCanvas?.invoke(false) { drawable ->
+                val gl = drawable.gl.gL3
+                gl.glViewport(0, 0, realCanvasWidth, realCanvasHeight)
+                thisLogger().info("[JOGL] Viewport updated to ${realCanvasWidth}x${realCanvasHeight}")
+                true
+            }
+
+            renderPanel.revalidate()
+            renderPanel.repaint()
+
+            statusLabel.text = "Real canvas size - ${realCanvasWidth}x${realCanvasHeight} (tool window size: ${width}x${height})"
         }
     }
 
@@ -424,10 +470,10 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
         val timeDelta = (now - lastFrameTime) / 1_000_000_000.0f
         lastFrameTime = now
 
-        // iResolution
+        // iResolution - 使用真实渲染分辨率
         uniformLocations["iResolution"]?.let { loc ->
             if (loc != -1) {
-                gl.glUniform3f(loc, targetWidth.toFloat(), targetHeight.toFloat(), 1.0f)
+                gl.glUniform3f(loc, realCanvasWidth.toFloat(), realCanvasHeight.toFloat(), 1.0f)
             }
         }
 

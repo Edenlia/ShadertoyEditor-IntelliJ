@@ -18,6 +18,7 @@ import javax.swing.JComponent
  */
 class JCefBackend(
     private val project: Project,
+    private val outerComponent: JComponent,
     private val htmlFile: String = "shadertoy-renderer.html"
 ) : RenderBackend {
     
@@ -81,6 +82,10 @@ class JCefBackend(
         return browser.component
     }
 
+    override fun getOuterComponent(): JComponent {
+        return outerComponent
+    }
+
     /**
      * 执行JavaScript代码
      *
@@ -139,7 +144,7 @@ class JCefBackend(
      * @param width 目标宽度
      * @param height 目标高度
      */
-    override fun setResolution(width: Int, height: Int) {
+    override fun updateRefCanvasResolution(width: Int, height: Int) {
         val jsCode = """
             (function() {
                 console.log('[Shadertoy] Updating target resolution to ${width}x${height}');
@@ -161,6 +166,10 @@ class JCefBackend(
         executeJavaScript(jsCode)
     }
 
+    override fun updateOuterResolution(width: Int, height: Int) {
+        TODO("Not yet implemented")
+    }
+
     /**
      * 释放浏览器资源
      */
@@ -180,5 +189,5 @@ class JCefBackend(
      * @deprecated 使用 setResolution() 代替
      */
     @Deprecated("Use setResolution() instead", ReplaceWith("setResolution(width, height)"))
-    fun updateTargetResolution(width: Int, height: Int) = setResolution(width, height)
+    fun updateTargetResolution(width: Int, height: Int) = updateRefCanvasResolution(width, height)
 }

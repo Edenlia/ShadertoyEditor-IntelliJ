@@ -2,8 +2,7 @@ package com.github.edenlia.shadertoyeditor.settings
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.SearchableConfigurable
-import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
-import com.github.edenlia.shadertoyeditor.listeners.ResolutionChangedListener
+import com.github.edenlia.shadertoyeditor.listeners.RefCanvasResolutionChangedListener
 import javax.swing.JComponent
 
 /**
@@ -62,13 +61,13 @@ class ShadertoyConfigurable : SearchableConfigurable {
         settings.setConfig(newConfig)
         
         // 检查分辨率是否发生变化
-        if (oldConfig.targetWidth != newConfig.targetWidth || 
-            oldConfig.targetHeight != newConfig.targetHeight) {
+        if (oldConfig.canvasRefWidth != newConfig.canvasRefWidth ||
+            oldConfig.canvasRefHeight != newConfig.canvasRefHeight) {
             
             // 通过Application级别的MessageBus发送通知
             ApplicationManager.getApplication().messageBus
-                .syncPublisher(ResolutionChangedListener.TOPIC)
-                .onResolutionChanged(newConfig.targetWidth, newConfig.targetHeight)
+                .syncPublisher(RefCanvasResolutionChangedListener.TOPIC)
+                .onRefCanvasResolutionChanged(newConfig.canvasRefWidth, newConfig.canvasRefHeight)
         }
     }
     
