@@ -304,7 +304,9 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
             // 在 OpenGL 线程中更新 viewport
             glCanvas?.invoke(false) { drawable ->
                 val gl = drawable.gl.gL3
-                gl.glViewport(0, 0, realCanvasWidth, realCanvasHeight)
+                val actualWidth = drawable.surfaceWidth
+                val actualHeight = drawable.surfaceHeight
+                gl.glViewport(0, 0, actualWidth, actualHeight)
                 thisLogger().info("[JOGL] Viewport updated to ${realCanvasWidth}x${realCanvasHeight}")
                 true
             }

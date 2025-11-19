@@ -64,7 +64,7 @@ out vec4 fragColor;
 $userGlslCode
 
 void main() {
-    mainImage(fragColor, gl_FragCoord.xy);
+    mainImage(fragColor, (gl_FragCoord.xy + vec2(1.0))*0.5);
 }
         """.trimIndent()
     }
