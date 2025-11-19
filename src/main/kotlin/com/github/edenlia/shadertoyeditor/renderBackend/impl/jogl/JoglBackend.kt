@@ -13,6 +13,7 @@ import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
+import java.awt.GraphicsConfiguration
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.util.Calendar
@@ -54,9 +55,13 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
     private var lastFrameTime = startTime
     private var frameCount = 0
 
-    // 真实渲染分辨率（动态计算得出）
+    // 真实渲染分辨率（动态计算得出，逻辑像素）
     private var realCanvasWidth = 1
     private var realCanvasHeight = 1
+    
+    // 物理像素分辨率（考虑DPI缩放）
+    private var physicalCanvasWidth = 1
+    private var physicalCanvasHeight = 1
 
     @Volatile
     private var initialized = false
@@ -161,6 +166,15 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
         // 创建fullscreen quad
         createQuad(gl)
         
+        // 初始化 viewport（处理高DPI）
+        val graphicsConfig: GraphicsConfiguration? = glCanvas?.graphicsConfiguration
+        val scaleX = graphicsConfig?.defaultTransform?.scaleX ?: 1.0
+        val scaleY = graphicsConfig?.defaultTransform?.scaleY ?: 1.0
+        physicalCanvasWidth = (drawable.surfaceWidth * scaleX).toInt()
+        physicalCanvasHeight = (drawable.surfaceHeight * scaleY).toInt()
+        gl.glViewport(0, 0, physicalCanvasWidth, physicalCanvasHeight)
+        thisLogger().info("[JOGL] Initial viewport set to ${physicalCanvasWidth}x${physicalCanvasHeight} (logical: ${drawable.surfaceWidth}x${drawable.surfaceHeight}, scale: ${scaleX}x${scaleY})")
+        
         thisLogger().info("[JOGL] Initialization complete. Waiting for shader via loadShader()...")
         thisLogger().info("[JOGL] ================================================")
     }
@@ -193,10 +207,20 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
         frameCount++
     }
 
+
     override fun reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {
-        // 空实现 - 所有分辨率计算在 setResolution() 中处理
-        // reshape 由 GLCanvas 自动调用，但我们不在这里处理逻辑
-        thisLogger().info("[JOGL] reshape() called: ${width}x${height}")
+        val gl = drawable.gl.gL3
+
+        // 获取 DPI 缩放比例（处理高DPI显示器）
+        val graphicsConfig: GraphicsConfiguration? = glCanvas?.graphicsConfiguration
+        val scaleX = graphicsConfig?.defaultTransform?.scaleX ?: 1.0
+        val scaleY = graphicsConfig?.defaultTransform?.scaleY ?: 1.0
+
+        // 计算物理像素尺寸（考虑DPI缩放）
+        physicalCanvasWidth = (drawable.surfaceWidth * scaleX).toInt()
+        physicalCanvasHeight = (drawable.surfaceHeight * scaleY).toInt()
+
+        gl.glViewport(0, 0, physicalCanvasWidth, physicalCanvasHeight)
     }
 
     override fun dispose(drawable: GLAutoDrawable) {
@@ -295,21 +319,7 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
 
             renderPanel.preferredSize = Dimension(realCanvasWidth, realCanvasHeight)
 
-            // 设置 GLCanvas 大小
-            glCanvas?.apply {
-                preferredSize = java.awt.Dimension(realCanvasWidth, realCanvasHeight)
-                size = java.awt.Dimension(realCanvasWidth, realCanvasHeight)
-            }
-
-            // 在 OpenGL 线程中更新 viewport
-            glCanvas?.invoke(false) { drawable ->
-                val gl = drawable.gl.gL3
-                val actualWidth = drawable.surfaceWidth
-                val actualHeight = drawable.surfaceHeight
-                gl.glViewport(0, 0, actualWidth, actualHeight)
-                thisLogger().info("[JOGL] Viewport updated to ${realCanvasWidth}x${realCanvasHeight}")
-                true
-            }
+            // 设置 GLCanvas 大小移交到 reshape 函数执行
 
             renderPanel.revalidate()
             renderPanel.repaint()
@@ -506,7 +516,7 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
         // iResolution - 使用真实渲染分辨率
         uniformLocations["iResolution"]?.let { loc ->
             if (loc != -1) {
-                gl.glUniform3f(loc, realCanvasWidth.toFloat(), realCanvasHeight.toFloat(), 1.0f)
+                gl.glUniform3f(loc, physicalCanvasWidth.toFloat(), physicalCanvasHeight.toFloat(), 1.0f)
             }
         }
 

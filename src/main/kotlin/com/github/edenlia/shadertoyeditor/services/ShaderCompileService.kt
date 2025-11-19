@@ -8,6 +8,8 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFileManager
+import java.util.Locale
+import java.util.Locale.getDefault
 
 /**
  * Shader编译服务
@@ -150,8 +152,21 @@ class ShaderCompileService(private val project: Project) {
      * @return 完整的Fragment Shader源代码
      */
     private fun wrapShaderCode(userGlslCode: String): String {
+        // TODO: Figure out why win and mac need to use different FragCoord
+        val os = System.getProperty("os.name").lowercase(getDefault());
+        var platformDefinition = "#define PLATFORM_UNKNOW"
+        if (os.contains("win")) {
+            platformDefinition = "#define PLATFORM_WINDOWS"
+        }
+        else if (os.contains("mac")) {
+            platformDefinition = "#define PLATFORM_MACOS"
+        }
+
         return """
 #version 330 core
+
+$platformDefinition
+
 precision highp float;
 
 uniform vec3 iResolution;
@@ -166,7 +181,13 @@ out vec4 fragColor;
 $userGlslCode
 
 void main() {
-    mainImage(fragColor, (gl_FragCoord.xy + vec2(1.0))*0.5);
+#ifdef PLATFORM_WINDOWS
+    mainImage(fragColor, (gl_FragCoord.xy));
+#elif defined(PLATFORM_MACOS)
+    mainImage(fragColor, (gl_FragCoord.xy + vec2(1.0)) * 0.5);
+#else
+    mainImage(fragColor, (gl_FragCoord.xy));
+#endif
 }
         """.trimIndent()
     }
