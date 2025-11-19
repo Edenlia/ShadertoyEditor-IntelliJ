@@ -14,6 +14,9 @@
         <toolWindow id="ShadertoyConsole" factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.ShadertoyOutputWindowFactory" anchor="right"/>
         <postStartupActivity implementation="com.github.edenlia.shadertoyeditor.startup.MyProjectActivity" />
         
+        <!-- Shadertoy项目自动加载 -->
+        <postStartupActivity implementation="com.github.edenlia.shadertoyeditor.startup.ShadertoyProjectLoader" />
+        
         <!-- Settings 配置页面 -->
         <applicationConfigurable 
             groupId="tools" 

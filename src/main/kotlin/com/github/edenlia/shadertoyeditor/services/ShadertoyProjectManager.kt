@@ -13,6 +13,7 @@ import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.Constructor
 import org.yaml.snakeyaml.representer.Representer
+import org.yaml.snakeyaml.inspector.TagInspector
 import java.io.File
 
 /**
@@ -56,8 +57,16 @@ class ShadertoyProjectManager(private val project: Project) {
         val configFile = getConfigFile()
         if (configFile.exists()) {
             try {
-                // SnakeYAML 2.x 需要 LoaderOptions
-                val loaderOptions = LoaderOptions()
+                // SnakeYAML 2.x 需要 LoaderOptions，并允许加载特定类型
+                val loaderOptions = LoaderOptions().apply {
+                    // 允许加载我们的配置类
+                    tagInspector = TagInspector { tag ->
+                        // 允许标准YAML类型和我们的配置类
+                        tag.value.startsWith("tag:yaml.org,2002:") ||
+                        tag.className == ShadertoyProjectConfig::class.java.name ||
+                        tag.className == ShadertoyProject::class.java.name
+                    }
+                }
                 val constructor = Constructor(ShadertoyProjectConfig::class.java, loaderOptions)
                 val yaml = Yaml(constructor)
                 configFile.inputStream().use { inputStream ->
@@ -87,7 +96,12 @@ class ShadertoyProjectManager(private val project: Project) {
                 isPrettyFlow = true
             }
             
-            val representer = Representer(options)
+            // 配置Representer，避免输出类型标签
+            val representer = Representer(options).apply {
+                // 不输出根对象的类型标签
+                propertyUtils.isSkipMissingProperties = true
+            }
+            
             val yaml = Yaml(representer, options)
             
             configFile.writeText(yaml.dump(config))
