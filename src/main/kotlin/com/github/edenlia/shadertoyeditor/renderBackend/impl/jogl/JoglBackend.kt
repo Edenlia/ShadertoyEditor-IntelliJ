@@ -2,6 +2,11 @@ package com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl
 
 import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.LINUX
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.MACOS
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.UNKNOWN
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.WINDOWS
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
@@ -167,13 +172,10 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
         createQuad(gl)
         
         // 初始化 viewport（处理高DPI）
-        val graphicsConfig: GraphicsConfiguration? = glCanvas?.graphicsConfiguration
-        val scaleX = graphicsConfig?.defaultTransform?.scaleX ?: 1.0
-        val scaleY = graphicsConfig?.defaultTransform?.scaleY ?: 1.0
-        physicalCanvasWidth = (drawable.surfaceWidth * scaleX).toInt()
-        physicalCanvasHeight = (drawable.surfaceHeight * scaleY).toInt()
+        physicalCanvasWidth     =   getPhysicalCanvasWidth(drawable, glCanvas)
+        physicalCanvasHeight    =   getPhysicalCanvasHeight(drawable, glCanvas)
         gl.glViewport(0, 0, physicalCanvasWidth, physicalCanvasHeight)
-        thisLogger().info("[JOGL] Initial viewport set to ${physicalCanvasWidth}x${physicalCanvasHeight} (logical: ${drawable.surfaceWidth}x${drawable.surfaceHeight}, scale: ${scaleX}x${scaleY})")
+        thisLogger().info("[JOGL] Initial viewport set to ${physicalCanvasWidth}x${physicalCanvasHeight} (logical: ${drawable.surfaceWidth}x${drawable.surfaceHeight}")
         
         thisLogger().info("[JOGL] Initialization complete. Waiting for shader via loadShader()...")
         thisLogger().info("[JOGL] ================================================")
@@ -211,14 +213,9 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
     override fun reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {
         val gl = drawable.gl.gL3
 
-        // 获取 DPI 缩放比例（处理高DPI显示器）
-        val graphicsConfig: GraphicsConfiguration? = glCanvas?.graphicsConfiguration
-        val scaleX = graphicsConfig?.defaultTransform?.scaleX ?: 1.0
-        val scaleY = graphicsConfig?.defaultTransform?.scaleY ?: 1.0
-
         // 计算物理像素尺寸（考虑DPI缩放）
-        physicalCanvasWidth = (drawable.surfaceWidth * scaleX).toInt()
-        physicalCanvasHeight = (drawable.surfaceHeight * scaleY).toInt()
+        physicalCanvasWidth     =   getPhysicalCanvasWidth(drawable, glCanvas)
+        physicalCanvasHeight    =   getPhysicalCanvasHeight(drawable, glCanvas)
 
         gl.glViewport(0, 0, physicalCanvasWidth, physicalCanvasHeight)
     }
@@ -502,6 +499,32 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
         uniformLocations["iDate"] = gl.glGetUniformLocation(shaderProgram, "iDate")
 
         thisLogger().info("[JOGL] Uniforms located: ${uniformLocations.filter { it.value != -1 }.keys}")
+    }
+
+    private fun getPhysicalCanvasWidth(drawable: GLAutoDrawable, canvas: GLCanvas?): Int {
+        val globalEnv = GlobalEnvService.getInstance()
+
+        val physicalScaleX = when (globalEnv.currentPlatform) {
+            WINDOWS -> glCanvas?.graphicsConfiguration?.defaultTransform?.scaleX ?: 1.0
+            MACOS -> 1.0
+            LINUX -> 1.0
+            UNKNOWN -> 1.0
+        }
+
+        return (drawable.surfaceWidth * physicalScaleX).toInt()
+    }
+
+    private fun getPhysicalCanvasHeight(drawable: GLAutoDrawable, canvas: GLCanvas?): Int {
+        val globalEnv = GlobalEnvService.getInstance()
+
+        val physicalScaleY = when (globalEnv.currentPlatform) {
+            WINDOWS -> glCanvas?.graphicsConfiguration?.defaultTransform?.scaleY ?: 1.0
+            MACOS -> 1.0
+            LINUX -> 1.0
+            UNKNOWN -> 1.0
+        }
+
+        return (drawable.surfaceHeight * physicalScaleY).toInt()
     }
 
     /**
