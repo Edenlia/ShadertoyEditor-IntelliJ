@@ -6,6 +6,7 @@ import com.intellij.ui.dsl.builder.*
 import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.ComboBox
+import javax.swing.JCheckBox
 import javax.swing.JComponent
 
 /**
@@ -24,6 +25,9 @@ class ShadertoySettingsUI {
     
     // UI 组件 - Backend选择
     private val backendComboBox = ComboBox(arrayOf("JCEF", "LWJGL", "JOGL"))
+    
+    // UI 组件 - 自动编译
+    private val autoCompileCheckBox = JCheckBox("Auto-compile on save (Image.glsl)")
     
     /**
      * 主面板 - 使用 Kotlin UI DSL 构建
@@ -113,6 +117,26 @@ class ShadertoySettingsUI {
                 comment("修改后需要重新打开Tool Window才能生效")
             }
         }
+        
+        // ===== 分隔空间 =====
+        row { }
+        
+        // ===== Auto Compilation Section =====
+        group("Auto Compilation") {
+            row {
+                label("编译行为设置")
+                    .bold()
+            }
+            
+            row {
+                cell(autoCompileCheckBox)
+                    .comment("保存激活项目的 Image.glsl 时自动编译并刷新渲染")
+            }
+            
+            row {
+                comment("提示：关闭自动编译后，需要手动点击 Compile 按钮")
+            }
+        }
     }
     
     /**
@@ -173,12 +197,14 @@ class ShadertoySettingsUI {
         val widthModified = targetWidthField.text.toIntOrNull() != config.canvasRefWidth
         val heightModified = targetHeightField.text.toIntOrNull() != config.canvasRefHeight
         val backendModified = (backendComboBox.selectedItem as? String) != config.backendType
+        val autoCompileModified = autoCompileCheckBox.isSelected != config.autoCompileOnSave
         
         return usernameField.text != config.username ||
                 String(passwordField.password) != config.password ||
                 widthModified ||
                 heightModified ||
-                backendModified
+                backendModified ||
+                autoCompileModified
     }
     
     /**
@@ -194,6 +220,9 @@ class ShadertoySettingsUI {
         
         // 保存Backend类型
         config.backendType = (backendComboBox.selectedItem as? String) ?: "JCEF"
+        
+        // 保存自动编译配置
+        config.autoCompileOnSave = autoCompileCheckBox.isSelected
     }
     
     /**
@@ -209,6 +238,9 @@ class ShadertoySettingsUI {
         
         // 加载Backend类型
         backendComboBox.selectedItem = config.backendType
+        
+        // 加载自动编译配置
+        autoCompileCheckBox.isSelected = config.autoCompileOnSave
     }
 }
 

@@ -35,6 +35,12 @@ data class ShadertoyConfig(
     var backendType: String = "JOGL",
 
     /**
+     * 保存时自动编译
+     * 当保存激活项目的 Image.glsl 文件时，自动触发编译
+     */
+    var autoCompileOnSave: Boolean = true,
+
+    /**
      * 配置版本号（用于未来升级）
      */
     var version: Int = 1
