@@ -24,7 +24,6 @@ import java.io.File
  * - 管理所有Shadertoy项目的CRUD操作
  * - 维护当前选中的项目
  * - 通过MessageBus通知项目切换事件
- * - 自动管理.gitignore
  */
 @Service(Service.Level.PROJECT)
 class ShadertoyProjectManager(private val project: Project) {
@@ -46,7 +45,6 @@ class ShadertoyProjectManager(private val project: Project) {
     init {
         thisLogger().info("[ShadertoyProjectManager] Initializing...")
         loadConfig()
-        ensureGitignore()
         thisLogger().info("[ShadertoyProjectManager] Loaded ${config.projects.size} projects")
     }
     
@@ -250,43 +248,6 @@ class ShadertoyProjectManager(private val project: Project) {
         val projectBasePath = project.basePath 
             ?: throw IllegalStateException("Project base path is null")
         return File("$projectBasePath/$CONFIG_FILE_NAME")
-    }
-    
-    /**
-     * 确保配置文件在.gitignore中
-     * 自动添加配置文件到.gitignore，避免提交到版本控制
-     */
-    private fun ensureGitignore() {
-        try {
-            val projectBasePath = project.basePath ?: return
-            val gitignoreFile = File("$projectBasePath/.gitignore")
-            
-            val ignoreEntry = CONFIG_FILE_NAME
-            
-            if (gitignoreFile.exists()) {
-                val content = gitignoreFile.readText()
-                if (!content.contains(ignoreEntry)) {
-                    // 追加到.gitignore
-                    gitignoreFile.appendText("\n# Shadertoy Editor\n$ignoreEntry\n")
-                    thisLogger().info("[ShadertoyProjectManager] Added config to .gitignore")
-                    
-                    // 刷新VFS
-                    ApplicationManager.getApplication().invokeLater {
-                        VirtualFileManager.getInstance().refreshWithoutFileWatcher(false)
-                    }
-                }
-            } else {
-                // 创建.gitignore
-                gitignoreFile.writeText("# Shadertoy Editor\n$ignoreEntry\n")
-                thisLogger().info("[ShadertoyProjectManager] Created .gitignore with config entry")
-                
-                ApplicationManager.getApplication().invokeLater {
-                    VirtualFileManager.getInstance().refreshWithoutFileWatcher(false)
-                }
-            }
-        } catch (e: Exception) {
-            thisLogger().warn("[ShadertoyProjectManager] Failed to update .gitignore", e)
-        }
     }
 }
 
