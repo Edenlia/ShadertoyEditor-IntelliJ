@@ -183,13 +183,7 @@ out vec4 fragColor;
 $userGlslCode
 
 void main() {
-#ifdef PLATFORM_WINDOWS
     mainImage(fragColor, (gl_FragCoord.xy));
-#elif defined(PLATFORM_MACOS)
-    mainImage(fragColor, (gl_FragCoord.xy + vec2(1.0)) * 0.5);
-#else
-    mainImage(fragColor, (gl_FragCoord.xy));
-#endif
 }
         """.trimIndent()
     }
