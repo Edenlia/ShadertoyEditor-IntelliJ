@@ -9,7 +9,7 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="Shadertoy" factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.ShadertoyWindowFactory"/>
+        <toolWindow id="Shadertoy" factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.ShadertoyWindowFactory" secondary="true"/>
         <toolWindow id="ShadertoyConsole" factoryClass="com.github.edenlia.shadertoyeditor.toolWindow.ShadertoyOutputWindowFactory" anchor="right"/>
         <postStartupActivity implementation="com.github.edenlia.shadertoyeditor.startup.MyProjectActivity" />
         
@@ -29,15 +29,55 @@
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl H"/>
         </action>
         
+        <!-- Shadertoy 工具栏 Actions -->
+        <action id="ShadertoyEditor.NewProject" 
+                class="com.github.edenlia.shadertoyeditor.actions.NewProjectAction"
+                text="New Shadertoy Project"
+                description="Create a new Shadertoy project"
+                icon="AllIcons.General.Add"/>
+        
+        <action id="ShadertoyEditor.RemoveProject" 
+                class="com.github.edenlia.shadertoyeditor.actions.RemoveProjectAction"
+                text="Remove Shadertoy Project"
+                description="Remove the selected project from list"
+                icon="AllIcons.General.Remove"/>
+        
+        <action id="ShadertoyEditor.RefreshProjects" 
+                class="com.github.edenlia.shadertoyeditor.actions.RefreshProjectsAction"
+                text="Refresh Projects"
+                description="Reload projects from config file"
+                icon="AllIcons.Actions.Refresh"/>
+        
+        <action id="ShadertoyEditor.OpenSettings" 
+                class="com.github.edenlia.shadertoyeditor.actions.OpenSettingsAction"
+                text="Shadertoy Settings"
+                description="Open Shadertoy Editor settings"
+                icon="AllIcons.General.Settings"/>
+        
         <!-- 编译Shadertoy项目 -->
         <action id="ShadertoyEditor.CompileShader" 
                 class="com.github.edenlia.shadertoyeditor.actions.CompileShadertoyAction"
                 text="Compile Shadertoy Project"
-                description="Compile the current active Shadertoy project">
+                description="Compile the current active Shadertoy project"
+                icon="AllIcons.Actions.Execute">
             <!-- Mac: Command+Control+R -->
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="control meta 2"/>
             <!-- Windows/Linux: Control+Alt+R -->
             <keyboard-shortcut keymap="$default" first-keystroke="control alt 2"/>
         </action>
+        
+        <!-- 工具栏 ActionGroup (左侧) -->
+        <group id="ShadertoyEditor.ToolbarActions">
+            <reference ref="ShadertoyEditor.NewProject"/>
+            <reference ref="ShadertoyEditor.RemoveProject"/>
+            <reference ref="ShadertoyEditor.RefreshProjects"/>
+            <separator/>
+            <reference ref="ShadertoyEditor.OpenSettings"/>
+        </group>
+        
+        <!-- 工具栏 ActionGroup (右侧 - 播放按钮) -->
+        <group id="ShadertoyEditor.ToolbarActionsRight">
+            <reference ref="ShadertoyEditor.CompileShader"/>
+        </group>
     </actions>
 </idea-plugin>

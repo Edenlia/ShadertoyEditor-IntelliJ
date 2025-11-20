@@ -1,24 +1,19 @@
 package com.github.edenlia.shadertoyeditor.toolWindow
 
-import com.github.edenlia.shadertoyeditor.dialogs.CreateShadertoyProjectDialog
-import com.github.edenlia.shadertoyeditor.services.ShaderCompileService
+import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
 import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
-import com.intellij.notification.Notification
-import com.intellij.notification.NotificationType
-import com.intellij.notification.Notifications
-import com.intellij.openapi.components.service
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
-import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import java.awt.BorderLayout
-import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -48,10 +43,14 @@ class ShadertoyWindowFactory : ToolWindowFactory {
 
         private val project = toolWindow.project
         private val projectManager = ShadertoyProjectManager.getInstance(project)
-        private val shaderCompileService = project.service<ShaderCompileService>()
         
         private val projectListModel = DefaultListModel<ShadertoyProject>()
         private val projectList = JBList(projectListModel)
+        
+        init {
+            // 订阅项目变更事件，自动刷新列表
+            subscribeToProjectChanges()
+        }
 
         /**
          * 创建窗口内容
@@ -59,8 +58,8 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         fun getContent(): JComponent {
             val mainPanel = JPanel(BorderLayout())
             
-            // 顶部工具栏
-            val toolbar = createToolbar()
+            // 顶部工具栏（使用 ActionToolbar）
+            val toolbar = createActionToolbar()
             
             // 项目列表
             setupProjectList()
@@ -76,27 +75,56 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         }
         
         /**
-         * 创建工具栏
+         * 创建 ActionToolbar (使用 IntelliJ Action 系统)
          */
-        private fun createToolbar(): JPanel {
-            val toolbar = JPanel(FlowLayout(FlowLayout.LEFT))
+        private fun createActionToolbar(): JComponent {
+            val actionManager = ActionManager.getInstance()
             
-            // New Project 按钮
-            toolbar.add(JButton("New Project").apply {
-                addActionListener { onNewProject() }
-            })
+            // 创建主工具栏面板
+            val toolbarPanel = JPanel(BorderLayout())
             
-            // Remove Project 按钮
-            toolbar.add(JButton("Remove Project").apply {
-                addActionListener { onRemoveProject() }
-            })
+            // 左侧工具栏：加号、减号、刷新、分隔符、设置
+            val leftGroup = actionManager.getAction("ShadertoyEditor.ToolbarActions") as DefaultActionGroup
+            val leftToolbar = actionManager.createActionToolbar(
+                "ShadertoyEditor.Toolbar.Left",
+                leftGroup,
+                true  // horizontal
+            )
+            leftToolbar.targetComponent = projectList
             
-            // Compile 按钮
-            toolbar.add(JButton("Compile").apply {
-                addActionListener { onCompile() }
-            })
+            // 右侧工具栏：播放按钮
+            val rightGroup = actionManager.getAction("ShadertoyEditor.ToolbarActionsRight") as DefaultActionGroup
+            val rightToolbar = actionManager.createActionToolbar(
+                "ShadertoyEditor.Toolbar.Right",
+                rightGroup,
+                true  // horizontal
+            )
+            rightToolbar.targetComponent = projectList
             
-            return toolbar
+            // 布局：左对齐 + 右对齐
+            toolbarPanel.add(leftToolbar.component, BorderLayout.WEST)
+            toolbarPanel.add(rightToolbar.component, BorderLayout.EAST)
+            
+            return toolbarPanel
+        }
+        
+        /**
+         * 订阅项目变更事件
+         */
+        private fun subscribeToProjectChanges() {
+            ApplicationManager.getApplication().messageBus
+                .connect()
+                .subscribe(
+                    ShadertoyProjectChangedListener.TOPIC,
+                    object : ShadertoyProjectChangedListener {
+                        override fun onProjectChanged(project: ShadertoyProject?) {
+                            // 项目变更时刷新列表
+                            SwingUtilities.invokeLater {
+                                loadProjects()
+                            }
+                        }
+                    }
+                )
         }
         
         /**
@@ -174,92 +202,6 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         }
         
         /**
-         * 新建项目
-         */
-        private fun onNewProject() {
-            val dialog = CreateShadertoyProjectDialog(project)
-            if (dialog.showAndGet()) {
-                try {
-                    val newProject = projectManager.createProject(
-                        dialog.getProjectName(),
-                        dialog.getProjectPath()
-                    )
-                    projectListModel.addElement(newProject)
-                    
-                    // 自动激活新创建的项目
-                    onProjectActivated(newProject)
-                    
-                    // 成功通知
-                    Notifications.Bus.notify(
-                        Notification(
-                            "Shadertoy Editor",
-                            "Project Created",
-                            "Created '${newProject.name}' at ${newProject.path}/Image.glsl",
-                            NotificationType.INFORMATION
-                        )
-                    )
-                    
-                    thisLogger().info("[ShadertoyWindow] Project created and activated: ${newProject.name}")
-                    
-                } catch (e: IllegalArgumentException) {
-                    // 校验错误
-                    Messages.showErrorDialog(
-                        project,
-                        e.message ?: "Failed to create project",
-                        "Validation Error"
-                    )
-                } catch (e: Exception) {
-                    // 其他错误
-                    Messages.showErrorDialog(
-                        project,
-                        "Failed to create project: ${e.message}",
-                        "Error"
-                    )
-                    thisLogger().error("[ShadertoyWindow] Failed to create project", e)
-                }
-            }
-        }
-        
-        /**
-         * 移除项目
-         */
-        private fun onRemoveProject() {
-            val selected = projectList.selectedValue
-            if (selected == null) {
-                Messages.showWarningDialog(
-                    project,
-                    "Please select a project to remove",
-                    "No Selection"
-                )
-                return
-            }
-            
-            val result = Messages.showYesNoDialog(
-                project,
-                "Remove project '${selected.name}'?\n(Files will NOT be deleted)",
-                "Confirm Remove",
-                Messages.getQuestionIcon()
-            )
-            
-            if (result == Messages.YES) {
-                // 如果删除的是当前激活的项目，设为null
-                val currentProj = projectManager.getCurrentProject()
-                if (currentProj != null && currentProj.name == selected.name) {
-                    projectManager.setCurrentProject(null)
-                    thisLogger().info("[ShadertoyWindow] Current active project removed, set to null")
-                }
-                
-                projectManager.removeProject(selected)
-                projectListModel.removeElement(selected)
-                
-                // 刷新列表显示（移除粗体）
-                projectList.repaint()
-                
-                thisLogger().info("[ShadertoyWindow] Project removed: ${selected.name}")
-            }
-        }
-        
-        /**
          * 激活项目（双击时）
          */
         private fun onProjectActivated(project: ShadertoyProject) {
@@ -272,13 +214,6 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             projectList.repaint()
             
             thisLogger().info("[ShadertoyWindow] Project activated: ${project.name}")
-        }
-        
-        /**
-         * 编译按钮点击
-         */
-        private fun onCompile() {
-            shaderCompileService.compileShadertoyProject()
         }
     }
 }
