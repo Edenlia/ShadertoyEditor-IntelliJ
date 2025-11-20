@@ -1,6 +1,10 @@
 package com.github.edenlia.shadertoyeditor.services
 
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.LINUX
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.MACOS
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.UNKNOWN
+import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.WINDOWS
 import com.github.edenlia.shadertoyeditor.toolWindow.ShadertoyOutputWindowFactory
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
@@ -8,8 +12,6 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFileManager
-import java.util.Locale
-import java.util.Locale.getDefault
 
 /**
  * Shader编译服务
@@ -152,14 +154,14 @@ class ShaderCompileService(private val project: Project) {
      * @return 完整的Fragment Shader源代码
      */
     private fun wrapShaderCode(userGlslCode: String): String {
-        // TODO: Figure out why win and mac need to use different FragCoord
-        val os = System.getProperty("os.name").lowercase(getDefault());
-        var platformDefinition = "#define PLATFORM_UNKNOW"
-        if (os.contains("win")) {
-            platformDefinition = "#define PLATFORM_WINDOWS"
-        }
-        else if (os.contains("mac")) {
-            platformDefinition = "#define PLATFORM_MACOS"
+        // 使用全局环境服务获取平台信息
+        val globalEnv = GlobalEnvService.getInstance()
+
+        val platformDefinition = when (globalEnv.currentPlatform) {
+            WINDOWS -> "#define PLATFORM_WINDOWS"
+            MACOS -> "#define PLATFORM_MACOS"
+            LINUX -> "#define PLATFORM_LINUX"
+            UNKNOWN -> "#define PLATFORM_UNKNOWN"
         }
 
         return """
