@@ -7,7 +7,11 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBList
@@ -121,6 +125,11 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                             // 项目变更时刷新列表
                             SwingUtilities.invokeLater {
                                 loadProjects()
+                                
+                                // 如果有新激活的项目，自动打开 Image.glsl
+                                if (project != null) {
+                                    openImageGlslFile(project)
+                                }
                             }
                         }
                     }
@@ -214,6 +223,70 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             projectList.repaint()
             
             thisLogger().info("[ShadertoyWindow] Project activated: ${project.name}")
+        }
+        
+        /**
+         * 打开 Image.glsl 文件
+         * 
+         * @param shadertoyProject 要打开的项目
+         */
+        private fun openImageGlslFile(shadertoyProject: ShadertoyProject) {
+            val projectBasePath = project.basePath
+            if (projectBasePath == null) {
+                thisLogger().warn("[ShadertoyWindow] Cannot open file: project base path is null")
+                return
+            }
+            
+            try {
+                // 1. 获取 Image.glsl 的完整路径
+                val imageGlslPath = shadertoyProject.getImageGlslPath(projectBasePath)
+                
+                // 2. 使用 ReadAction 获取 VirtualFile（VFS 访问需要读锁）
+                val virtualFile = ApplicationManager.getApplication().runReadAction<VirtualFile?> {
+                    LocalFileSystem.getInstance().findFileByPath(imageGlslPath)
+                }
+                
+                // 3. 检查文件是否存在
+                if (virtualFile == null || !virtualFile.exists()) {
+                    handleMissingFile(shadertoyProject, imageGlslPath)
+                    return
+                }
+                
+                // 4. 打开文件并聚焦
+                FileEditorManager.getInstance(project).openFile(virtualFile, true)
+                thisLogger().info("[ShadertoyWindow] Opened Image.glsl: $imageGlslPath")
+                
+            } catch (e: Exception) {
+                thisLogger().error("[ShadertoyWindow] Failed to open Image.glsl", e)
+                Messages.showErrorDialog(
+                    project,
+                    "Failed to open Image.glsl: ${e.message}",
+                    "File Open Error"
+                )
+            }
+        }
+        
+        /**
+         * 处理文件丢失的情况
+         * 
+         * @param shadertoyProject 文件丢失的项目
+         * @param filePath 丢失的文件路径
+         */
+        private fun handleMissingFile(shadertoyProject: ShadertoyProject, filePath: String) {
+            thisLogger().warn("[ShadertoyWindow] Image.glsl not found: $filePath")
+            
+            // 1. 弹窗报错
+            Messages.showErrorDialog(
+                project,
+                "Image.glsl not found at:\n$filePath\n\nThe project '${shadertoyProject.name}' will be removed from the list.",
+                "File Not Found"
+            )
+            
+            // 2. 从配置中删除该项目
+            // removeProject 会触发项目变更事件，列表会自动刷新
+            projectManager.removeProject(shadertoyProject)
+            
+            thisLogger().info("[ShadertoyWindow] Removed project due to missing file: ${shadertoyProject.name}")
         }
     }
 }
