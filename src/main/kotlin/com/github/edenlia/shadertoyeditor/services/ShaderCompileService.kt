@@ -232,6 +232,12 @@ uniform int iFrame;
 uniform vec4 iMouse;
 uniform vec4 iDate;
 
+// Texture channels
+uniform sampler2D iChannel0;
+uniform sampler2D iChannel1;
+uniform sampler2D iChannel2;
+uniform sampler2D iChannel3;
+
 out vec4 fragColor;
 
 $userGlslCode

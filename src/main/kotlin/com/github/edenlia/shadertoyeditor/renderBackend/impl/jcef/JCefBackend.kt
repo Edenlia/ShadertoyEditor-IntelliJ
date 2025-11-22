@@ -1,6 +1,7 @@
 package com.github.edenlia.shadertoyeditor.renderBackend.impl.jcef
 
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
+import com.github.edenlia.shadertoyeditor.renderBackend.Texture
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefApp
@@ -168,6 +169,14 @@ class JCefBackend(
 
     override fun updateOuterResolution(width: Int, height: Int) {
         TODO("Not yet implemented")
+    }
+
+    override fun setChannelTexture(channelIndex: Int, texture: Texture?) {
+        throw UnsupportedOperationException("Texture channels are not supported in JCEF backend")
+    }
+
+    override fun clearAllChannels() {
+        throw UnsupportedOperationException("Texture channels are not supported in JCEF backend")
     }
 
     /**

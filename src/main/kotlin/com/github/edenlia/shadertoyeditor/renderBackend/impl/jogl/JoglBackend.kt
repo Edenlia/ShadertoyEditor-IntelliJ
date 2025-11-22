@@ -1,7 +1,9 @@
 package com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl
 
 import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
+import com.github.edenlia.shadertoyeditor.renderBackend.DefaultBlackTexture
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
+import com.github.edenlia.shadertoyeditor.renderBackend.Texture
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.LINUX
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.MACOS
@@ -73,6 +75,14 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
 
     @Volatile
     private var shaderCompiled = false
+
+    // Texture相关
+    private val channelTextures = IntArray(4) { 0 }  // OpenGL texture IDs，0表示未创建
+    private var defaultTextureId: Int = 0  // 默认1x1黑色texture的ID
+    
+    // 同步锁（用于线程安全）
+    private val textureUpdateLock = Any()
+    private val pendingTextureUpdates = mutableListOf<Pair<Int, Texture?>>()  // channelIndex -> texture
 
     init {
         thisLogger().info("[JOGL] Creating JOGL Backend...")
@@ -171,6 +181,15 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
         // 创建fullscreen quad
         createQuad(gl)
         
+        // 创建默认黑色texture（1x1）
+        defaultTextureId = createTexture(gl, DefaultBlackTexture)
+        
+        // 初始化所有channel为默认texture
+        for (i in 0 until 4) {
+            channelTextures[i] = defaultTextureId
+        }
+        thisLogger().info("[JOGL] Default texture created and assigned to all channels")
+        
         // 初始化 viewport（处理高DPI）
         physicalCanvasWidth     =   getPhysicalCanvasWidth(drawable, glCanvas)
         physicalCanvasHeight    =   getPhysicalCanvasHeight(drawable, glCanvas)
@@ -197,6 +216,12 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
 
         // 使用shader
         gl.glUseProgram(shaderProgram)
+
+        // 处理待处理的texture更新
+        processPendingTextureUpdates(gl)
+
+        // 绑定textures到对应的texture units
+        bindTextures(gl)
 
         // 更新uniforms
         updateUniforms(gl)
@@ -232,6 +257,18 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
         }
         if (quadVBO != 0) {
             gl.glDeleteBuffers(1, intArrayOf(quadVBO), 0)
+        }
+        
+        // 删除所有channel textures（除了默认texture，它在dispose时统一删除）
+        for (i in 0 until 4) {
+            if (channelTextures[i] != 0 && channelTextures[i] != defaultTextureId) {
+                gl.glDeleteTextures(1, intArrayOf(channelTextures[i]), 0)
+            }
+        }
+        
+        // 删除默认texture
+        if (defaultTextureId != 0) {
+            gl.glDeleteTextures(1, intArrayOf(defaultTextureId), 0)
         }
 
         thisLogger().info("[JOGL] OpenGL resources cleaned up")
@@ -344,6 +381,35 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
             // 窗口更高，宽度受限
             realCanvasWidth = toolWindowWidth
             realCanvasHeight = (toolWindowWidth / refAspect).toInt()
+        }
+    }
+
+    override fun setChannelTexture(channelIndex: Int, texture: Texture?) {
+        require(channelIndex in 0..3) { "Channel index must be in range 0-3, got $channelIndex" }
+        
+        // 验证texture数据（如果提供）
+        texture?.let {
+            require(it.width > 0 && it.height > 0) { "Texture dimensions must be positive" }
+            require(it.pixelData.size == it.width * it.height * 4) {
+                "Invalid texture data: expected ${it.width * it.height * 4} bytes, got ${it.pixelData.size}"
+            }
+        }
+        
+        // 线程安全：将更新请求加入队列
+        synchronized(textureUpdateLock) {
+            pendingTextureUpdates.add(channelIndex to texture)
+        }
+        
+        // 在OpenGL上下文中执行更新
+        glCanvas?.invoke(false) { drawable ->
+            processPendingTextureUpdates(drawable.gl.gL3)
+            true  // 触发重绘
+        }
+    }
+
+    override fun clearAllChannels() {
+        for (i in 0 until 4) {
+            setChannelTexture(i, null)
         }
     }
 
@@ -497,6 +563,12 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
         uniformLocations["iFrame"] = gl.glGetUniformLocation(shaderProgram, "iFrame")
         uniformLocations["iMouse"] = gl.glGetUniformLocation(shaderProgram, "iMouse")
         uniformLocations["iDate"] = gl.glGetUniformLocation(shaderProgram, "iDate")
+        
+        // Texture samplers
+        uniformLocations["iChannel0"] = gl.glGetUniformLocation(shaderProgram, "iChannel0")
+        uniformLocations["iChannel1"] = gl.glGetUniformLocation(shaderProgram, "iChannel1")
+        uniformLocations["iChannel2"] = gl.glGetUniformLocation(shaderProgram, "iChannel2")
+        uniformLocations["iChannel3"] = gl.glGetUniformLocation(shaderProgram, "iChannel3")
 
         thisLogger().info("[JOGL] Uniforms located: ${uniformLocations.filter { it.value != -1 }.keys}")
     }
@@ -578,6 +650,103 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
                 gl.glUniform4f(loc, year, month, day, secondsOfDay)
             }
         }
+    }
+    
+    /**
+     * 绑定textures到对应的texture units
+     */
+    private fun bindTextures(gl: GL3) {
+        gl.glActiveTexture(GL.GL_TEXTURE0)
+        gl.glBindTexture(GL.GL_TEXTURE_2D, channelTextures[0])
+        uniformLocations["iChannel0"]?.let { if (it != -1) gl.glUniform1i(it, 0) }
+        
+        gl.glActiveTexture(GL.GL_TEXTURE1)
+        gl.glBindTexture(GL.GL_TEXTURE_2D, channelTextures[1])
+        uniformLocations["iChannel1"]?.let { if (it != -1) gl.glUniform1i(it, 1) }
+        
+        gl.glActiveTexture(GL.GL_TEXTURE2)
+        gl.glBindTexture(GL.GL_TEXTURE_2D, channelTextures[2])
+        uniformLocations["iChannel2"]?.let { if (it != -1) gl.glUniform1i(it, 2) }
+        
+        gl.glActiveTexture(GL.GL_TEXTURE3)
+        gl.glBindTexture(GL.GL_TEXTURE_2D, channelTextures[3])
+        uniformLocations["iChannel3"]?.let { if (it != -1) gl.glUniform1i(it, 3) }
+    }
+    
+    /**
+     * 处理待处理的texture更新
+     */
+    private fun processPendingTextureUpdates(gl: GL3) {
+        synchronized(textureUpdateLock) {
+            if (pendingTextureUpdates.isEmpty()) return
+            
+            val updates = pendingTextureUpdates.toList()
+            pendingTextureUpdates.clear()
+            
+            for ((channelIndex, texture) in updates) {
+                updateChannelTexture(gl, channelIndex, texture)
+            }
+        }
+    }
+    
+    /**
+     * 更新指定channel的texture
+     */
+    private fun updateChannelTexture(gl: GL3, channelIndex: Int, texture: Texture?) {
+        val targetTexture = texture ?: DefaultBlackTexture
+        
+        // 如果该channel已有texture，先删除（除非是默认texture）
+        if (channelTextures[channelIndex] != 0 && channelTextures[channelIndex] != defaultTextureId) {
+            gl.glDeleteTextures(1, intArrayOf(channelTextures[channelIndex]), 0)
+        }
+        
+        // 创建新texture
+        val textureId = createTexture(gl, targetTexture)
+        channelTextures[channelIndex] = textureId
+        
+        thisLogger().info("[JOGL] Channel $channelIndex texture updated: ${targetTexture.width}x${targetTexture.height}")
+    }
+    
+    /**
+     * 创建OpenGL texture
+     * 
+     * @param gl GL3上下文
+     * @param texture Texture数据
+     * @return OpenGL texture ID
+     */
+    private fun createTexture(gl: GL3, texture: Texture): Int {
+        val textureIds = IntArray(1)
+        gl.glGenTextures(1, textureIds, 0)
+        val textureId = textureIds[0]
+        
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textureId)
+        
+        // 设置纹理参数（Shadertoy常用设置）
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_REPEAT)
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+        gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+        
+        // 上传像素数据
+        val buffer = java.nio.ByteBuffer.allocateDirect(texture.pixelData.size)
+        buffer.put(texture.pixelData)
+        buffer.flip()
+        
+        gl.glTexImage2D(
+            GL.GL_TEXTURE_2D,
+            0,
+            GL.GL_RGBA,
+            texture.width,
+            texture.height,
+            0,
+            GL.GL_RGBA,
+            GL.GL_UNSIGNED_BYTE,
+            buffer
+        )
+        
+        gl.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        
+        return textureId
     }
 }
 

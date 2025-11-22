@@ -10,6 +10,7 @@ import javax.swing.JComponent
  * - 提供Swing组件用于显示
  * - 加载和编译Shader代码
  * - 更新渲染参数
+ * - 管理Texture通道
  */
 interface RenderBackend : Disposable {
     
@@ -44,5 +45,22 @@ interface RenderBackend : Disposable {
     fun updateRefCanvasResolution(width: Int, height: Int)
 
     fun updateOuterResolution(width: Int, height: Int)
+    
+    /**
+     * 设置指定channel的texture
+     * 
+     * 线程安全：此方法可以在任何线程调用，内部会确保在OpenGL上下文中执行
+     * 
+     * @param channelIndex channel索引 (0-3，对应iChannel0-iChannel3)
+     * @param texture 要设置的texture，null表示清除该channel（使用默认黑色texture）
+     * @throws IllegalArgumentException 如果channelIndex不在0-3范围内
+     * @throws IllegalStateException 如果texture数据无效（尺寸不匹配等）
+     */
+    fun setChannelTexture(channelIndex: Int, texture: Texture?)
+    
+    /**
+     * 清除所有channel的texture（恢复到默认黑色texture）
+     */
+    fun clearAllChannels()
 }
 
