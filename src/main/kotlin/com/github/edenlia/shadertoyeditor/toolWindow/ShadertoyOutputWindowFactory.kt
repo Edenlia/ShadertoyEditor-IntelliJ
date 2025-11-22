@@ -13,6 +13,7 @@ import com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl.JoglBackend
 import com.github.edenlia.shadertoyeditor.listeners.RefCanvasResolutionChangedListener
 import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
+import com.github.edenlia.shadertoyeditor.services.TextureManager
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.diagnostic.thisLogger
 import javax.swing.JComponent
@@ -110,10 +111,15 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
                         if (project == null) {
                             // 清空渲染 - 显示空白
                             clearRender()
+                            // 清除所有texture
+                            TextureManager.clearAllTextures(this@ShadertoyOutputWindow.project)
                             thisLogger().info("[ShadertoyOutputWindow] Project cleared, showing blank")
                         } else {
                             thisLogger().info("[ShadertoyOutputWindow] Project changed to: ${project.name}")
-                            // 有项目选中时，不做任何操作，等待用户点击Compile
+                            // 加载项目的texture
+                            SwingUtilities.invokeLater {
+                                TextureManager.loadProjectTextures(this@ShadertoyOutputWindow.project, project)
+                            }
                         }
                     }
                 }
