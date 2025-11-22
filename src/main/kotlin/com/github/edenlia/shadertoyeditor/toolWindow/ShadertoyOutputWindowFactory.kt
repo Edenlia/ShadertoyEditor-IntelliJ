@@ -9,7 +9,6 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.util.messages.MessageBusConnection
 import com.github.edenlia.shadertoyeditor.renderBackend.impl.jcef.JCefBackend
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
-import com.github.edenlia.shadertoyeditor.renderBackend.impl.lwjgl.LwjglBackend
 import com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl.JoglBackend
 import com.github.edenlia.shadertoyeditor.listeners.RefCanvasResolutionChangedListener
 import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
@@ -58,7 +57,6 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
             val backendType = config.backendType.uppercase()
             
             renderBackend = when (backendType) {
-                "LWJGL" -> LwjglBackend(project, toolWindow.component)
                 "JOGL" -> JoglBackend(project, toolWindow.component)
                 else -> JCefBackend(project, toolWindow.component)  // 默认使用JCEF
             }

@@ -29,7 +29,7 @@ data class ShadertoyConfig(
 
     /**
      * 渲染后端类型
-     * 可选值：JCEF, LWJGL
+     * 可选值：JCEF
      * 默认：JCEF（稳定性最好）
      */
     var backendType: String = "JOGL",

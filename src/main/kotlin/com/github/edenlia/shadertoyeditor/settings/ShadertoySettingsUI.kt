@@ -110,7 +110,7 @@ class ShadertoySettingsUI {
                 label("Backend Type:")
                     .gap(RightGap.SMALL)
                 cell(backendComboBox)
-                    .comment("JCEF: 稳定 (~30fps) | LWJGL: 高性能 (120fps+, 需要OpenGL 3.3+)")
+                    .comment("JCEF: 稳定 (~30fps)")
             }
             
             row {
