@@ -106,7 +106,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
             messageBusConnection.subscribe(
                 ShadertoyProjectChangedListener.TOPIC,
                 object : ShadertoyProjectChangedListener {
-                    override fun onProjectChanged(project: ShadertoyProject?) {
+                    override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
                         if (project == null) {
                             // 清空渲染 - 显示空白
                             clearRender()

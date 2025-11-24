@@ -16,7 +16,7 @@ interface ShadertoyProjectChangedListener {
      * 
      * @param project 新选中的项目，如果没有选中则为null
      */
-    fun onProjectChanged(project: ShadertoyProject?)
+    fun onShadertoyProjectChanged(project: ShadertoyProject?)
     
     companion object {
         /**

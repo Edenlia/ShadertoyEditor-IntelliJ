@@ -80,7 +80,7 @@ class ShaderCompileService(private val project: Project) : Disposable {
      */
     fun compileShadertoyProject() {
         val projectManager = ShadertoyProjectManager.getInstance(project)
-        val currentProject = projectManager.getCurrentProject()
+        val currentProject = projectManager.getCurrentShadertoyProject()
         
         // 检查是否有激活的项目
         if (currentProject == null) {
@@ -260,7 +260,7 @@ void main() {
             .subscribe(
                 ShadertoyProjectChangedListener.TOPIC,
                 object : ShadertoyProjectChangedListener {
-                    override fun onProjectChanged(project: ShadertoyProject?) {
+                    override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
                         handleProjectChanged(project)
                     }
                 }

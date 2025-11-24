@@ -46,19 +46,19 @@ class ShadertoyWindowFactory : ToolWindowFactory {
     class ShadertoyWindow(private val toolWindow: ToolWindow) {
 
         // 动态获取，不缓存，确保在IDE项目切换时能获取到正确的project
-        private fun getProject(): Project = toolWindow.project
-        private fun getProjectManager(): ShadertoyProjectManager = 
-            ShadertoyProjectManager.getInstance(getProject())
+        private fun getIDEProject(): Project = toolWindow.project
+        private fun getShadertoyProjectManager(): ShadertoyProjectManager =
+            ShadertoyProjectManager.getInstance(getIDEProject())
         
-        private val projectListModel = DefaultListModel<ShadertoyProject>()
-        private val projectList = JBList(projectListModel)
+        private val shadertoyProjectListModel = DefaultListModel<ShadertoyProject>()
+        private val shadertoyProjectList = JBList(shadertoyProjectListModel)
         private var texturePanel: TextureChannelPanel? = null
         private var contentPanel: JPanel? = null  // 保存contentPanel引用
         private var isRestoringSelection = false  // 标记是否正在恢复选择（避免触发事件）
         
         init {
             // 订阅项目变更事件，自动刷新列表
-            subscribeToProjectChanges()
+            subscribeToShadertoyProjectChanges()
             thisLogger().info("[ShadertoyWindow] Initialized")
         }
 
@@ -75,8 +75,8 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             thisLogger().info("[ShadertoyWindow] Toolbar created")
             
             // 项目列表
-            setupProjectList()
-            val scrollPane = JBScrollPane(projectList)
+            setupShadertoyProjectList()
+            val scrollPane = JBScrollPane(shadertoyProjectList)
             thisLogger().info("[ShadertoyWindow] Project list setup complete")
             
             // 创建内容面板（项目列表 + texture面板）
@@ -89,8 +89,8 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             thisLogger().info("[ShadertoyWindow] Main panel layout complete")
             
             // 加载项目列表
-            loadProjects()
-            thisLogger().info("[ShadertoyWindow] Projects loaded: ${projectListModel.size()}")
+            loadShadertoyProjects()
+            thisLogger().info("[ShadertoyWindow] Projects loaded: ${shadertoyProjectListModel.size()}")
             
             // 延迟初始化texture面板（确保组件已完全添加到父容器）
             SwingUtilities.invokeLater {
@@ -118,7 +118,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                 leftGroup,
                 true  // horizontal
             )
-            leftToolbar.targetComponent = projectList
+            leftToolbar.targetComponent = shadertoyProjectList
             
             // 右侧工具栏：播放按钮
             val rightGroup = actionManager.getAction("ShadertoyEditor.ToolbarActionsRight") as DefaultActionGroup
@@ -127,7 +127,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                 rightGroup,
                 true  // horizontal
             )
-            rightToolbar.targetComponent = projectList
+            rightToolbar.targetComponent = shadertoyProjectList
             
             // 布局：左对齐 + 右对齐
             toolbarPanel.add(leftToolbar.component, BorderLayout.WEST)
@@ -139,18 +139,18 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         /**
          * 订阅项目变更事件
          */
-        private fun subscribeToProjectChanges() {
+        private fun subscribeToShadertoyProjectChanges() {
             ApplicationManager.getApplication().messageBus
                 .connect()
                 .subscribe(
                     ShadertoyProjectChangedListener.TOPIC,
                     object : ShadertoyProjectChangedListener {
-                        override fun onProjectChanged(project: ShadertoyProject?) {
+                        override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
                             thisLogger().info("[ShadertoyWindow] Project changed event received: ${project?.name ?: "null"}")
                             // 项目变更时刷新列表
                             SwingUtilities.invokeLater {
                                 thisLogger().info("[ShadertoyWindow] Processing project change in EDT")
-                                loadProjects()
+                                loadShadertoyProjects()
                                 
                                 // 更新texture面板
                                 thisLogger().info("[ShadertoyWindow] Updating texture panel after project change")
@@ -169,11 +169,11 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         /**
          * 设置项目列表
          */
-        private fun setupProjectList() {
-            projectList.selectionMode = ListSelectionModel.SINGLE_SELECTION
+        private fun setupShadertoyProjectList() {
+            shadertoyProjectList.selectionMode = ListSelectionModel.SINGLE_SELECTION
             
             // 自定义渲染器 - 激活的项目显示粗体
-            projectList.cellRenderer = object : DefaultListCellRenderer() {
+            shadertoyProjectList.cellRenderer = object : DefaultListCellRenderer() {
                 override fun getListCellRendererComponent(
                     list: JList<*>?,
                     value: Any?,
@@ -188,7 +188,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                         text = "${value.name} (${value.path})"
                         
                         // 如果是当前激活的项目，显示粗体
-                        val currentProj = getProjectManager().getCurrentProject()
+                        val currentProj = getShadertoyProjectManager().getCurrentShadertoyProject()
                         if (currentProj != null && currentProj.name == value.name) {
                             font = font.deriveFont(Font.BOLD)
                         }
@@ -198,13 +198,13 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             }
             
             // 双击激活项目
-            projectList.addMouseListener(object : MouseAdapter() {
+            shadertoyProjectList.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
                     if (e.clickCount == 2) {  // 双击
-                        val index = projectList.locationToIndex(e.point)
+                        val index = shadertoyProjectList.locationToIndex(e.point)
                         if (index >= 0) {
-                            val project = projectListModel.getElementAt(index)
-                            onProjectActivated(project)
+                            val project = shadertoyProjectListModel.getElementAt(index)
+                            onShadertoyProjectActivated(project)
                         }
                     }
                 }
@@ -212,7 +212,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             
             // 监听选择变化，更新texture面板
             // 注意：只在用户主动选择时更新，不响应程序化的选择（如restoreSelection）
-            projectList.addListSelectionListener { e ->
+            shadertoyProjectList.addListSelectionListener { e ->
                 if (!e.valueIsAdjusting && !isRestoringSelection) {
                     thisLogger().info("[ShadertoyWindow] List selection changed (user action), updating texture panel")
                     updateTexturePanel()
@@ -225,19 +225,19 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         /**
          * 加载项目列表
          */
-        private fun loadProjects() {
+        private fun loadShadertoyProjects() {
             thisLogger().info("[ShadertoyWindow] Loading projects...")
-            projectListModel.clear()
-            val projects = getProjectManager().getAllProjects()
+            shadertoyProjectListModel.clear()
+            val projects = getShadertoyProjectManager().getAllProjects()
             thisLogger().info("[ShadertoyWindow] Found ${projects.size} projects")
             projects.forEach {
-                projectListModel.addElement(it)
+                shadertoyProjectListModel.addElement(it)
                 thisLogger().info("[ShadertoyWindow] Added project to list: ${it.name}")
             }
             
             // 恢复选中状态
             restoreSelection()
-            thisLogger().info("[ShadertoyWindow] Projects loaded, list size: ${projectListModel.size()}")
+            thisLogger().info("[ShadertoyWindow] Projects loaded, list size: ${shadertoyProjectListModel.size()}")
         }
         
         /**
@@ -247,16 +247,16 @@ class ShadertoyWindowFactory : ToolWindowFactory {
          * 实际的texture面板显示由updateTexturePanel()根据currentProject决定
          */
         private fun restoreSelection() {
-            val currentProj = getProjectManager().getCurrentProject()
+            val currentProj = getShadertoyProjectManager().getCurrentShadertoyProject()
             thisLogger().info("[ShadertoyWindow] Restoring selection, current project: ${currentProj?.name ?: "null"}")
             
             isRestoringSelection = true
             try {
                 if (currentProj != null) {
                     // 在列表中找到并选中（视觉上高亮）
-                    for (i in 0 until projectListModel.size()) {
-                        if (projectListModel.getElementAt(i).name == currentProj.name) {
-                            projectList.selectedIndex = i
+                    for (i in 0 until shadertoyProjectListModel.size()) {
+                        if (shadertoyProjectListModel.getElementAt(i).name == currentProj.name) {
+                            shadertoyProjectList.selectedIndex = i
                             thisLogger().info("[ShadertoyWindow] Selected project in list (visual only): ${currentProj.name}")
                             break
                         }
@@ -264,7 +264,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                 } else {
                     thisLogger().info("[ShadertoyWindow] No current project to restore")
                     // 确保没有选中任何项目
-                    projectList.clearSelection()
+                    shadertoyProjectList.clearSelection()
                 }
             } finally {
                 isRestoringSelection = false
@@ -274,17 +274,17 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         /**
          * 激活项目（双击时）
          */
-        private fun onProjectActivated(project: ShadertoyProject) {
+        private fun onShadertoyProjectActivated(project: ShadertoyProject) {
             thisLogger().info("[ShadertoyWindow] Project activated: ${project.name}")
-            getProjectManager().setCurrentProject(project)
+            getShadertoyProjectManager().setCurrentShadertoyProject(project)
             thisLogger().info("[ShadertoyWindow] Current project set in manager")
             
             // 选中该项（视觉高亮）
-            projectList.setSelectedValue(project, true)
+            shadertoyProjectList.setSelectedValue(project, true)
             thisLogger().info("[ShadertoyWindow] Project selected in list")
             
             // 刷新列表显示（更新粗体）
-            projectList.repaint()
+            shadertoyProjectList.repaint()
             
             // 更新texture面板
             thisLogger().info("[ShadertoyWindow] Updating texture panel after activation")
@@ -303,8 +303,8 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         private fun updateTexturePanel() {
             thisLogger().info("[ShadertoyWindow] ========== updateTexturePanel called ==========")
             
-            val selectedProject = projectList.selectedValue as? ShadertoyProject
-            val currentProject = getProjectManager().getCurrentProject()
+            val selectedProject = shadertoyProjectList.selectedValue as? ShadertoyProject
+            val currentProject = getShadertoyProjectManager().getCurrentShadertoyProject()
             
             thisLogger().info("[ShadertoyWindow] Selected project: ${selectedProject?.name ?: "null"}")
             thisLogger().info("[ShadertoyWindow] Current project: ${currentProject?.name ?: "null"}")
@@ -318,7 +318,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             if (contentPanel == null) {
                 thisLogger().warn("[ShadertoyWindow] contentPanel is null! Cannot add texture panel.")
                 // 尝试通过projectList查找
-                val foundPanel = projectList.parent?.parent as? JPanel
+                val foundPanel = shadertoyProjectList.parent?.parent as? JPanel
                 if (foundPanel != null) {
                     thisLogger().info("[ShadertoyWindow] Found contentPanel via projectList.parent.parent")
                     contentPanel = foundPanel
@@ -350,7 +350,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                 thisLogger().info("[ShadertoyWindow] Creating new TextureChannelPanel for project: ${targetProject.name}")
                 
                 try {
-                    texturePanel = TextureChannelPanel(getProject(), targetProject)
+                    texturePanel = TextureChannelPanel(getIDEProject(), targetProject)
                     thisLogger().info("[ShadertoyWindow] TextureChannelPanel created successfully")
                     
                     // 添加到内容面板的底部
@@ -384,7 +384,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
          * @param shadertoyProject 要打开的项目
          */
         private fun openImageGlslFile(shadertoyProject: ShadertoyProject) {
-            val projectBasePath = getProject().basePath
+            val projectBasePath = getIDEProject().basePath
             if (projectBasePath == null) {
                 thisLogger().warn("[ShadertoyWindow] Cannot open file: project base path is null")
                 return
@@ -406,13 +406,13 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                 }
                 
                 // 4. 打开文件并聚焦
-                FileEditorManager.getInstance(getProject()).openFile(virtualFile, true)
+                FileEditorManager.getInstance(getIDEProject()).openFile(virtualFile, true)
                 thisLogger().info("[ShadertoyWindow] Opened Image.glsl: $imageGlslPath")
                 
             } catch (e: Exception) {
                 thisLogger().error("[ShadertoyWindow] Failed to open Image.glsl", e)
                 Messages.showErrorDialog(
-                    getProject(),
+                    getIDEProject(),
                     "Failed to open Image.glsl: ${e.message}",
                     "File Open Error"
                 )
@@ -430,14 +430,14 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             
             // 1. 弹窗报错
             Messages.showErrorDialog(
-                getProject(),
+                getIDEProject(),
                 "Image.glsl not found at:\n$filePath\n\nThe project '${shadertoyProject.name}' will be removed from the list.",
                 "File Not Found"
             )
             
             // 2. 从配置中删除该项目
             // removeProject 会触发项目变更事件，列表会自动刷新
-            getProjectManager().removeProject(shadertoyProject)
+            getShadertoyProjectManager().removeShadertoyProject(shadertoyProject)
             
             thisLogger().info("[ShadertoyWindow] Removed project due to missing file: ${shadertoyProject.name}")
         }

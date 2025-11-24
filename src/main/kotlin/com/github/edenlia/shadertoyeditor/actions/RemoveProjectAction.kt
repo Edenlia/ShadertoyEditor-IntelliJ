@@ -16,7 +16,7 @@ class RemoveProjectAction : AnAction() {
         val project = e.project ?: return
         val projectManager = ShadertoyProjectManager.getInstance(project)
         
-        val currentProj = projectManager.getCurrentProject()
+        val currentProj = projectManager.getCurrentShadertoyProject()
         if (currentProj == null) {
             Messages.showWarningDialog(
                 project,
@@ -34,7 +34,7 @@ class RemoveProjectAction : AnAction() {
         )
         
         if (result == Messages.YES) {
-            projectManager.removeProject(currentProj)
+            projectManager.removeShadertoyProject(currentProj)
             thisLogger().info("[RemoveProjectAction] Project removed: ${currentProj.name}")
         }
     }
@@ -44,7 +44,7 @@ class RemoveProjectAction : AnAction() {
         val projectManager = ShadertoyProjectManager.getInstance(project)
         
         // 只有选中项目时才启用按钮
-        e.presentation.isEnabled = projectManager.getCurrentProject() != null
+        e.presentation.isEnabled = projectManager.getCurrentShadertoyProject() != null
     }
 }
 

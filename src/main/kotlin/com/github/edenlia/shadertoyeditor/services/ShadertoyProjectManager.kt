@@ -52,7 +52,7 @@ class ShadertoyProjectManager(private val project: Project) {
      * 加载配置文件
      */
     fun loadConfig() {
-        val configFile = getConfigFile()
+        val configFile = getShadertoyEditorConfigFile()
         if (configFile.exists()) {
             try {
                 // SnakeYAML 2.x 需要 LoaderOptions，并允许加载特定类型
@@ -86,7 +86,7 @@ class ShadertoyProjectManager(private val project: Project) {
      */
     fun saveConfig() {
         try {
-            val configFile = getConfigFile()
+            val configFile = getShadertoyEditorConfigFile()
             
             // 配置YAML输出格式
             val options = DumperOptions().apply {
@@ -152,7 +152,7 @@ class ShadertoyProjectManager(private val project: Project) {
      * @throws IllegalArgumentException 如果名称不唯一或路径不可用
      * @throws IllegalStateException 如果模板文件未找到或项目路径为null
      */
-    fun createProject(name: String, relativePath: String): ShadertoyProject {
+    fun createShadertoyProject(name: String, relativePath: String): ShadertoyProject {
         // 1. 校验名称唯一性
         if (!isProjectNameUnique(name)) {
             throw IllegalArgumentException("Project name '$name' already exists")
@@ -199,12 +199,12 @@ class ShadertoyProjectManager(private val project: Project) {
     /**
      * 删除项目（仅从配置移除，不删除文件夹）
      */
-    fun removeProject(proj: ShadertoyProject) {
+    fun removeShadertoyProject(proj: ShadertoyProject) {
         config.projects.remove(proj)
         saveConfig()
         
         if (currentProject == proj) {
-            setCurrentProject(null)
+            setCurrentShadertoyProject(null)
         }
         
         thisLogger().info("[ShadertoyProjectManager] Project removed: ${proj.name}")
@@ -222,13 +222,13 @@ class ShadertoyProjectManager(private val project: Project) {
      * 
      * 会通过MessageBus通知所有订阅者
      */
-    fun setCurrentProject(proj: ShadertoyProject?) {
+    fun setCurrentShadertoyProject(proj: ShadertoyProject?) {
         currentProject = proj
         
         // 发送通知
         ApplicationManager.getApplication().messageBus
             .syncPublisher(ShadertoyProjectChangedListener.TOPIC)
-            .onProjectChanged(proj)
+            .onShadertoyProjectChanged(proj)
         
         val projectName = proj?.name ?: "None"
         thisLogger().info("[ShadertoyProjectManager] Current project changed to: $projectName")
@@ -237,14 +237,14 @@ class ShadertoyProjectManager(private val project: Project) {
     /**
      * 获取当前选中的项目
      */
-    fun getCurrentProject(): ShadertoyProject? {
+    fun getCurrentShadertoyProject(): ShadertoyProject? {
         return currentProject
     }
     
     /**
      * 获取配置文件对象
      */
-    private fun getConfigFile(): File {
+    private fun getShadertoyEditorConfigFile(): File {
         val projectBasePath = project.basePath 
             ?: throw IllegalStateException("Project base path is null")
         return File("$projectBasePath/$CONFIG_FILE_NAME")

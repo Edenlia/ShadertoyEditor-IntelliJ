@@ -22,13 +22,13 @@ class NewProjectAction : AnAction() {
         val dialog = CreateShadertoyProjectDialog(project)
         if (dialog.showAndGet()) {
             try {
-                val newProject = projectManager.createProject(
+                val newProject = projectManager.createShadertoyProject(
                     dialog.getProjectName(),
                     dialog.getProjectPath()
                 )
                 
                 // 自动激活新项目
-                projectManager.setCurrentProject(newProject)
+                projectManager.setCurrentShadertoyProject(newProject)
                 
                 // 通知用户
                 Notifications.Bus.notify(
