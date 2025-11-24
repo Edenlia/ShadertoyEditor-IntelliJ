@@ -24,7 +24,10 @@ class ShadertoySettingsUI {
     private val targetHeightField = JBTextField()
     
     // UI 组件 - Backend选择
-    private val backendComboBox = ComboBox(arrayOf("JCEF", "LWJGL", "JOGL"))
+    private val backendComboBox = ComboBox(arrayOf("JOGL"))
+    
+    // UI 组件 - FPS 限制
+    private val fpsLimitField = JBTextField()
     
     // UI 组件 - 自动编译
     private val autoCompileCheckBox = JCheckBox("Auto-compile on save (Image.glsl)")
@@ -102,7 +105,7 @@ class ShadertoySettingsUI {
         // ===== Render Backend Section =====
         group("Render Backend") {
             row {
-                label("渲染后端选择（需要重启IDE生效）")
+                label("渲染后端设置")
                     .bold()
             }
             
@@ -110,11 +113,23 @@ class ShadertoySettingsUI {
                 label("Backend Type:")
                     .gap(RightGap.SMALL)
                 cell(backendComboBox)
-                    .comment("JCEF: 稳定 (~30fps)")
+                    .enabled(false)  // 禁用选择，只支持 JOGL
+                    .comment("当前仅支持 JOGL 后端")
             }
             
             row {
-                comment("修改后需要重新打开Tool Window才能生效")
+                label("FPS Limit:")
+                    .gap(RightGap.SMALL)
+                cell(fpsLimitField)
+                    .columns(10)
+                    .validationOnApply { field ->
+                        validateFPSField(field.text)
+                    }
+                    .comment("0 = 无限帧率，其他值限制最大帧率（如 60, 120, 144）")
+            }
+            
+            row {
+                comment("FPS 修改后立即生效")
             }
         }
         
@@ -186,6 +201,33 @@ class ShadertoySettingsUI {
     }
     
     /**
+     * 验证 FPS 限制字段
+     */
+    private fun validateFPSField(text: String): com.intellij.openapi.ui.ValidationInfo? {
+        // 检查是否为空
+        if (text.isBlank()) {
+            return com.intellij.openapi.ui.ValidationInfo("FPS限制不能为空")
+        }
+        
+        // 检查是否为数字
+        val value = text.toIntOrNull()
+        if (value == null) {
+            return com.intellij.openapi.ui.ValidationInfo("FPS限制必须是整数")
+        }
+        
+        // 检查范围
+        if (value < 0) {
+            return com.intellij.openapi.ui.ValidationInfo("FPS限制不能为负数")
+        }
+        
+        if (value > 1000) {
+            return com.intellij.openapi.ui.ValidationInfo("FPS限制不能大于1000")
+        }
+        
+        return null
+    }
+    
+    /**
      * 获取主面板
      */
     fun getPanel(): JComponent = mainPanel
@@ -197,6 +239,7 @@ class ShadertoySettingsUI {
         val widthModified = targetWidthField.text.toIntOrNull() != config.canvasRefWidth
         val heightModified = targetHeightField.text.toIntOrNull() != config.canvasRefHeight
         val backendModified = (backendComboBox.selectedItem as? String) != config.backendType
+        val fpsModified = fpsLimitField.text.toIntOrNull() != config.fpsLimit
         val autoCompileModified = autoCompileCheckBox.isSelected != config.autoCompileOnSave
         
         return usernameField.text != config.username ||
@@ -204,6 +247,7 @@ class ShadertoySettingsUI {
                 widthModified ||
                 heightModified ||
                 backendModified ||
+                fpsModified ||
                 autoCompileModified
     }
     
@@ -218,8 +262,11 @@ class ShadertoySettingsUI {
         config.canvasRefWidth = targetWidthField.text.toIntOrNull() ?: 1280
         config.canvasRefHeight = targetHeightField.text.toIntOrNull() ?: 720
         
-        // 保存Backend类型
-        config.backendType = (backendComboBox.selectedItem as? String) ?: "JCEF"
+        // 保存Backend类型（固定为 JOGL）
+        config.backendType = (backendComboBox.selectedItem as? String) ?: "JOGL"
+        
+        // 保存 FPS 限制
+        config.fpsLimit = fpsLimitField.text.toIntOrNull() ?: 0
         
         // 保存自动编译配置
         config.autoCompileOnSave = autoCompileCheckBox.isSelected
@@ -238,6 +285,9 @@ class ShadertoySettingsUI {
         
         // 加载Backend类型
         backendComboBox.selectedItem = config.backendType
+        
+        // 加载 FPS 限制
+        fpsLimitField.text = config.fpsLimit.toString()
         
         // 加载自动编译配置
         autoCompileCheckBox.isSelected = config.autoCompileOnSave

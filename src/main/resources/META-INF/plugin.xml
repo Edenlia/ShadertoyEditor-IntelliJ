@@ -16,6 +16,9 @@
         <!-- Shadertoy项目自动加载 -->
         <postStartupActivity implementation="com.github.edenlia.shadertoyeditor.startup.ShadertoyProjectLoader" />
         
+        <!-- RenderBackend Service (Project级别) -->
+        <projectService serviceImplementation="com.github.edenlia.shadertoyeditor.services.RenderBackendService"/>
+        
         <!-- Settings 配置页面 -->
         <applicationConfigurable 
             groupId="tools" 

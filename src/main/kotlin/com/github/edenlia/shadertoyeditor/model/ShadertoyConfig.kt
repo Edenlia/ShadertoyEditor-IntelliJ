@@ -29,8 +29,8 @@ data class ShadertoyConfig(
 
     /**
      * 渲染后端类型
-     * 可选值：JCEF
-     * 默认：JCEF（稳定性最好）
+     * 可选值：JOGL（其他后端已弃用）
+     * 默认：JOGL
      */
     var backendType: String = "JOGL",
 
@@ -39,6 +39,14 @@ data class ShadertoyConfig(
      * 当保存激活项目的 Image.glsl 文件时，自动触发编译
      */
     var autoCompileOnSave: Boolean = true,
+    
+    /**
+     * 渲染帧率限制（FPS）
+     * 0 表示无限帧率（尽可能快地渲染）
+     * 其他值表示目标帧率（如 60, 120, 144）
+     * 默认：0（无限帧率）
+     */
+    var fpsLimit: Int = 0,
 
     /**
      * 配置版本号（用于未来升级）

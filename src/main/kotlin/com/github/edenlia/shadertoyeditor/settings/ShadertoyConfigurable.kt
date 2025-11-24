@@ -2,7 +2,10 @@ package com.github.edenlia.shadertoyeditor.settings
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.SearchableConfigurable
+import com.intellij.openapi.project.ProjectManager
 import com.github.edenlia.shadertoyeditor.listeners.RefCanvasResolutionChangedListener
+import com.github.edenlia.shadertoyeditor.services.RenderBackendService
+import com.intellij.openapi.diagnostic.thisLogger
 import javax.swing.JComponent
 
 /**
@@ -50,7 +53,7 @@ class ShadertoyConfigurable : SearchableConfigurable {
     
     /**
      * 应用配置更改
-     * Apply后通过MessageBus通知所有监听器
+     * Apply后通过MessageBus通知所有监听器，并更新Backend设置
      */
     override fun apply() {
         val settings = ShadertoySettings.getInstance()
@@ -68,6 +71,27 @@ class ShadertoyConfigurable : SearchableConfigurable {
             ApplicationManager.getApplication().messageBus
                 .syncPublisher(RefCanvasResolutionChangedListener.TOPIC)
                 .onRefCanvasResolutionChanged(newConfig.canvasRefWidth, newConfig.canvasRefHeight)
+        }
+        
+        // 检查 FPS 限制是否发生变化
+        if (oldConfig.fpsLimit != newConfig.fpsLimit) {
+            thisLogger().info("[ShadertoyConfigurable] FPS limit changed from ${oldConfig.fpsLimit} to ${newConfig.fpsLimit}")
+            
+            // 更新所有打开的 Project 的 Backend FPS 设置
+            val openProjects = ProjectManager.getInstance().openProjects
+            for (project in openProjects) {
+                try {
+                    // 尝试获取 Backend（如果已经创建）
+                    val service = RenderBackendService.getInstance(project)
+                    // 注意：这里直接调用 getBackend 会触发懒加载
+                    // 但这是期望的行为，因为用户修改了设置，应该应用到所有 Backend
+                    val backend = service.getBackend()
+                    backend.setFPSLimit(newConfig.fpsLimit)
+                    thisLogger().info("[ShadertoyConfigurable] Updated FPS limit for project: ${project.name}")
+                } catch (e: Exception) {
+                    thisLogger().warn("[ShadertoyConfigurable] Failed to update FPS for project: ${project.name}", e)
+                }
+            }
         }
     }
     

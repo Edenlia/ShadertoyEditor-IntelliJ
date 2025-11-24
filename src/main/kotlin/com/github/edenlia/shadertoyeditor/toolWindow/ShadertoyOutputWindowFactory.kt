@@ -7,15 +7,16 @@ import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import com.intellij.util.messages.MessageBusConnection
-import com.github.edenlia.shadertoyeditor.renderBackend.impl.jcef.JCefBackend
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
-import com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl.JoglBackend
 import com.github.edenlia.shadertoyeditor.listeners.RefCanvasResolutionChangedListener
 import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
+import com.github.edenlia.shadertoyeditor.services.RenderBackendService
 import com.github.edenlia.shadertoyeditor.services.TextureManager
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.diagnostic.thisLogger
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 
@@ -42,7 +43,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
     override fun shouldBeAvailable(project: Project) = true
 
     /**
-     * Shadertoy输出窗口，使用可配置的渲染后端显示Shader渲染内容
+     * Shadertoy输出窗口，使用JOGL渲染后端显示Shader渲染内容
      */
     class ShadertoyOutputWindow(
         private val project: Project,
@@ -53,14 +54,12 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
         private val messageBusConnection: MessageBusConnection
         
         init {
-            // 根据配置创建渲染后端
-            val config = ShadertoySettings.getInstance().getConfig()
-            val backendType = config.backendType.uppercase()
+            // 从 Service 获取 RenderBackend（懒加载，每个 Project 一个实例）
+            renderBackend = RenderBackendService.getInstance(project).getBackend()
+            thisLogger().info("[ShadertoyOutputWindow] Got RenderBackend from service")
             
-            renderBackend = when (backendType) {
-                "JOGL" -> JoglBackend(project, toolWindow.component)
-                else -> JCefBackend(project, toolWindow.component)  // 默认使用JCEF
-            }
+            // 启用渲染（ToolWindow 打开时）
+            renderBackend.enableRendering(true)
             
             // 订阅参考分辨率变更事件（Settings 修改时）
             messageBusConnection = subscribeToRefCanvasResolutionChanges()
@@ -68,7 +67,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
             // 订阅项目切换事件
             subscribeToProjectChanges()
             
-            // 监听 ToolWindow 尺寸变化
+            // 监听 ToolWindow 尺寸变化（主动调用 Backend）
             subscribeToToolWindowResize()
             
             // 初始化分辨率
@@ -152,11 +151,16 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          * 监听 ToolWindow 尺寸变化
          */
         private fun subscribeToToolWindowResize() {
-            // 监听 ToolWindow component 的尺寸变化
-            toolWindow.component.addComponentListener(object : java.awt.event.ComponentAdapter() {
-                override fun componentResized(e: java.awt.event.ComponentEvent?) {
-                    // 当 ToolWindow 大小改变时，重新计算渲染分辨率
-                    setToolWindowResolution()
+            // 监听 ToolWindow component 的尺寸变化，主动通知 Backend
+            toolWindow.component.addComponentListener(object : ComponentAdapter() {
+                override fun componentResized(e: ComponentEvent?) {
+                    val width = toolWindow.component.width
+                    val height = toolWindow.component.height
+                    
+                    thisLogger().info("[ShadertoyOutputWindow] ToolWindow resized to ${width}x${height}, notifying backend")
+                    
+                    // 主动调用 Backend 的容器尺寸变化通知
+                    renderBackend.onContainerResized(width, height)
                 }
             })
         }
@@ -199,10 +203,17 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          * 释放资源（实现 Disposable 接口）
          */
         override fun dispose() {
+            thisLogger().info("[ShadertoyOutputWindow] Disposing output window")
+            
+            // 禁用渲染（节省 CPU，但不销毁 Backend）
+            renderBackend.enableRendering(false)
+            
             // 断开 MessageBus 连接
             messageBusConnection.disconnect()
-            // 释放渲染后端资源
-            renderBackend.dispose()
+            
+            // 注意：不调用 renderBackend.dispose()
+            // Backend 的生命周期由 RenderBackendService 管理，跟随 Project
+            thisLogger().info("[ShadertoyOutputWindow] Output window disposed, rendering disabled")
         }
     }
     

@@ -37,11 +37,11 @@ import kotlin.math.max
  * - 无线程限制（不需要GLFW）
  * - 原生AWT/Swing集成
  * - 支持所有平台（macOS/Windows/Linux）
- * - 高性能（120fps+）
+ * - 高性能（无限帧率）
  *
  * @param project 当前项目实例
  */
-class JoglBackend(private val project: Project, private val outerComponent: JComponent) : RenderBackend, GLEventListener {
+class JoglBackend(private val project: Project) : RenderBackend, GLEventListener {
 
     private val rootPanel: JPanel
     private val renderPanel: JPanel
@@ -69,12 +69,23 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
     // 物理像素分辨率（考虑DPI缩放）
     private var physicalCanvasWidth = 1
     private var physicalCanvasHeight = 1
+    
+    // 外部容器尺寸（由 onContainerResized 更新）
+    private var containerWidth = 1
+    private var containerHeight = 1
 
     @Volatile
     private var initialized = false
 
     @Volatile
     private var shaderCompiled = false
+    
+    // 渲染控制
+    @Volatile
+    private var renderingEnabled = true
+    
+    @Volatile
+    private var fpsLimit = 0  // 0 表示无限帧率
 
     // Texture相关
     private val channelTextures = IntArray(4) { 0 }  // OpenGL texture IDs，0表示未创建
@@ -151,14 +162,16 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
             renderPanel.add(glCanvas!!, BorderLayout.CENTER)
             renderPanel.revalidate()
 
-            // 创建动画器（无限制帧率，设为0表示最快）
+            // 创建动画器（无限帧率）
             animator = FPSAnimator(glCanvas, 0, true).apply {
-                start()
+                if (renderingEnabled) {
+                    start()
+                }
             }
 
             initialized = true
             statusLabel.text = "JOGL Backend Ready - Waiting for shader..."
-            thisLogger().info("[JOGL] JOGL initialized successfully")
+            thisLogger().info("[JOGL] JOGL initialized successfully (FPS: ${if (fpsLimit == 0) "unlimited" else fpsLimit})")
 
         } catch (e: Exception) {
             thisLogger().error("[JOGL] Initialization failed", e)
@@ -277,9 +290,6 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
     // ===== RenderBackend 接口实现 =====
 
     override fun getRootComponent(): JComponent = rootPanel
-    override fun getOuterComponent(): JComponent {
-        return outerComponent
-    }
 
     override fun loadShader(fragmentShaderSource: String) {
         if (!initialized) {
@@ -341,34 +351,76 @@ class JoglBackend(private val project: Project, private val outerComponent: JCom
     }
 
     override fun updateRefCanvasResolution(width: Int, height: Int) {
-
-        // 在updateOuterResolution中会自动应用refcanvas, 直接调用即可
-        updateOuterResolution(outerComponent.width, outerComponent.height)
-    }
-
-    override fun updateOuterResolution(width: Int, height: Int) {
         SwingUtilities.invokeLater {
-
             calculateRealCanvasResolution()
-
+            
             renderPanel.preferredSize = Dimension(realCanvasWidth, realCanvasHeight)
-
-            // 设置 GLCanvas 大小移交到 reshape 函数执行
-
             renderPanel.revalidate()
             renderPanel.repaint()
-
-            statusLabel.text = "Real canvas size - ${realCanvasWidth}x${realCanvasHeight} (tool window size: ${width}x${height})"
+            
+            statusLabel.text = "Ref resolution: ${width}x${height}, Real canvas: ${realCanvasWidth}x${realCanvasHeight}"
+            thisLogger().info("[JOGL] Ref resolution updated to ${width}x${height}, calculated real canvas: ${realCanvasWidth}x${realCanvasHeight}")
+        }
+    }
+    
+    override fun onContainerResized(width: Int, height: Int) {
+        containerWidth = width
+        containerHeight = height
+        
+        thisLogger().info("[JOGL] Container resized to ${width}x${height}")
+        
+        // 重新计算并应用分辨率
+        val config = ShadertoySettings.getInstance().getConfig()
+        updateRefCanvasResolution(config.canvasRefWidth, config.canvasRefHeight)
+    }
+    
+    override fun enableRendering(enable: Boolean) {
+        renderingEnabled = enable
+        
+        if (enable) {
+            animator?.start()
+            thisLogger().info("[JOGL] Rendering enabled")
+        } else {
+            animator?.stop()
+            thisLogger().info("[JOGL] Rendering disabled")
+        }
+    }
+    
+    override fun setFPSLimit(fps: Int) {
+        if (!initialized) {
+            fpsLimit = fps
+            thisLogger().info("[JOGL] FPS limit set to ${if (fps == 0) "unlimited" else fps} (will apply after initialization)")
+            return
+        }
+        
+        fpsLimit = fps
+        
+        SwingUtilities.invokeLater {
+            val wasRunning = animator?.isAnimating ?: false
+            
+            // 停止旧的 animator
+            animator?.stop()
+            
+            // 根据 fps 创建新的 animator
+            animator = com.jogamp.opengl.util.FPSAnimator(glCanvas, fps, true)
+            
+            // 如果之前在运行且渲染开启，则启动新的 animator
+            if (wasRunning && renderingEnabled) {
+                animator?.start()
+            }
+            
+            thisLogger().info("[JOGL] FPS limit updated to ${if (fps == 0) "unlimited" else fps}")
+            statusLabel.text = "FPS: ${if (fps == 0) "unlimited" else fps} | ${statusLabel.text}"
         }
     }
 
-    fun calculateRealCanvasResolution()
+    private fun calculateRealCanvasResolution()
     {
         val refCanvasWidth = ShadertoySettings.getInstance().getConfig().canvasRefWidth
         val refCanvasHeight = ShadertoySettings.getInstance().getConfig().canvasRefHeight
 
-        val toolWindowWidth = max(outerComponent.width, 1)
-        val toolWindowHeight = max(outerComponent.height, 1)
+        val toolWindowWidth = max(containerWidth, 1)
+        val toolWindowHeight = max(containerHeight, 1)
 
         val refAspect = refCanvasWidth.toFloat() / refCanvasHeight.toFloat()
         val windowAspect = toolWindowWidth.toFloat() / toolWindowHeight.toFloat()

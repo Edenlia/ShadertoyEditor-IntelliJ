@@ -11,22 +11,19 @@ import javax.swing.JComponent
  * - 加载和编译Shader代码
  * - 更新渲染参数
  * - 管理Texture通道
+ * - 控制渲染行为（开关、帧率）
  */
 interface RenderBackend : Disposable {
     
     /**
-     * 直接嵌在ToolWindow Component中的根Component
+     * 获取渲染视图的根组件
+     * 
+     * 此组件可以被添加到 ToolWindow 或其他容器中
+     * Backend 创建后，此组件可以被反复 add/remove 而不影响 Backend 状态
      * 
      * @return JComponent 渲染视图组件
      */
     fun getRootComponent(): JComponent
-
-    /**
-     * ToolWindow的Component
-     *
-     * @return JComponent 渲染视图组件
-     */
-    fun getOuterComponent(): JComponent
     
     /**
      * 加载并编译Shader代码
@@ -37,14 +34,42 @@ interface RenderBackend : Disposable {
     fun loadShader(fragmentShaderSource: String)
     
     /**
-     * 更新settings中设置的ref canvas的大小
+     * 更新参考Canvas分辨率
      * 
-     * @param width 目标宽度（像素）
-     * @param height 目标高度（像素）
+     * 根据设置中的参考分辨率和实际容器尺寸，计算真实渲染分辨率
+     * 
+     * @param width 参考宽度（像素）
+     * @param height 参考高度（像素）
      */
     fun updateRefCanvasResolution(width: Int, height: Int)
-
-    fun updateOuterResolution(width: Int, height: Int)
+    
+    /**
+     * 通知Backend外部容器尺寸发生变化
+     * 
+     * 当 ToolWindow 或其他容器的尺寸改变时，由外部主动调用此方法
+     * Backend 会根据新的容器尺寸重新计算渲染分辨率
+     * 
+     * @param width 容器宽度（像素）
+     * @param height 容器高度（像素）
+     */
+    fun onContainerResized(width: Int, height: Int)
+    
+    /**
+     * 启用或禁用渲染
+     * 
+     * 当 ToolWindow 关闭时应调用 enableRendering(false) 以节省 CPU
+     * 当 ToolWindow 打开时调用 enableRendering(true) 恢复渲染
+     * 
+     * @param enable true=启用渲染，false=禁用渲染
+     */
+    fun enableRendering(enable: Boolean)
+    
+    /**
+     * 设置帧率限制
+     * 
+     * @param fps 目标帧率（帧/秒），0 表示无限帧率（尽可能快地渲染）
+     */
+    fun setFPSLimit(fps: Int)
     
     /**
      * 设置指定channel的texture
