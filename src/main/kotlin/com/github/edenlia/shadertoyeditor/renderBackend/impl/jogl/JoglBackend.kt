@@ -12,14 +12,18 @@ import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.MAC
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.UNKNOWN
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.WINDOWS
 import com.github.edenlia.shadertoyeditor.renderBackend.TexturePathResolver
+import com.github.edenlia.shadertoyeditor.services.RenderBackendService
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.IdeFrame
 import com.intellij.ui.JBColor
 import com.intellij.util.messages.MessageBusConnection
 import com.jogamp.opengl.*
 import com.jogamp.opengl.awt.GLCanvas
+import com.jogamp.opengl.util.AnimatorBase
 import com.jogamp.opengl.util.FPSAnimator
 import java.awt.BorderLayout
 import java.awt.Color
@@ -85,9 +89,6 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     // 渲染控制
     @Volatile
     private var renderingEnabled = true
-    
-    @Volatile
-    private var fpsLimit = 0  // 0 表示无限帧率
 
     // Texture相关
     private val channelTextures = IntArray(4) { 0 }  // OpenGL texture IDs，0表示未创建
@@ -143,6 +144,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
         subscribeToRefCanvasResolutionChanges()
         subscribeToShadertoyProjectChanges()
+        subscribeToApplicationFocus()
 
         // 在EDT初始化JOGL
         SwingUtilities.invokeLater {
@@ -204,6 +206,22 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
         )
     }
 
+    private fun subscribeToApplicationFocus() {
+        messageBusConnection.subscribe(
+            com.intellij.openapi.application.ApplicationActivationListener.TOPIC,
+            object : com.intellij.openapi.application.ApplicationActivationListener {
+                override fun applicationActivated(ideFrame: IdeFrame) {
+                    val settings = com.intellij.openapi.components.service<ShadertoySettings>()
+                    setFPSLimit(settings.getConfig().fpsLimit.toInt())
+                }
+
+                override fun applicationDeactivated(ideFrame: IdeFrame) {
+                    setFPSLimit(10)
+                }
+            }
+        )
+    }
+
     /**
      * 清空渲染内容
      */
@@ -252,8 +270,10 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
             renderPanel.add(glCanvas!!, BorderLayout.CENTER)
             renderPanel.revalidate()
 
+            val settings = com.intellij.openapi.components.service<ShadertoySettings>()
+
             // 创建动画器（无限帧率）
-            animator = FPSAnimator(glCanvas, 0, true).apply {
+            animator = FPSAnimator(glCanvas, settings.getConfig().fpsLimit, true).apply {
                 if (renderingEnabled) {
                     start()
                 }
@@ -261,7 +281,6 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
             initialized = true
             statusLabel.text = "JOGL Backend Ready - Waiting for shader..."
-            thisLogger().info("[JOGL] JOGL initialized successfully (FPS: ${if (fpsLimit == 0) "unlimited" else fpsLimit})")
 
         } catch (e: Exception) {
             thisLogger().error("[JOGL] Initialization failed", e)
@@ -480,28 +499,16 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     }
     
     override fun setFPSLimit(fps: Int) {
-        if (!initialized) {
-            fpsLimit = fps
+        if (!initialized || glCanvas == null) {
             thisLogger().info("[JOGL] FPS limit set to ${if (fps == 0) "unlimited" else fps} (will apply after initialization)")
             return
         }
-        
-        fpsLimit = fps
-        
+
         SwingUtilities.invokeLater {
-            val wasRunning = animator?.isAnimating ?: false
-            
-            // 停止旧的 animator
             animator?.stop()
-            
-            // 根据 fps 创建新的 animator
-            animator = com.jogamp.opengl.util.FPSAnimator(glCanvas, fps, true)
-            
-            // 如果之前在运行且渲染开启，则启动新的 animator
-            if (wasRunning && renderingEnabled) {
-                animator?.start()
-            }
-            
+            animator?.fps = fps
+            animator?.start()
+
             thisLogger().info("[JOGL] FPS limit updated to ${if (fps == 0) "unlimited" else fps}")
             statusLabel.text = "FPS: ${if (fps == 0) "unlimited" else fps} | ${statusLabel.text}"
         }
