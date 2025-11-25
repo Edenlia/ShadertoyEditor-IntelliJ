@@ -8,33 +8,29 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import com.intellij.util.messages.MessageBusConnection
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
-import com.github.edenlia.shadertoyeditor.listeners.STE_IDEAppEventListener
 import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
-import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
-import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import javax.swing.JComponent
-import javax.swing.SwingUtilities
 
 
 class ShadertoyOutputWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val shadertoyOutputWindow = ShadertoyOutputWindow(project, toolWindow)
+        val shadertoyConsoleWindow = ShadertoyConsoleWindow(project, toolWindow)
         val content = ContentFactory.getInstance()
-            .createContent(shadertoyOutputWindow.getContent(), null, false)
+            .createContent(shadertoyConsoleWindow.getContent(), null, false)
         
         // 将实例保存到project的userData中，方便其他组件访问
-        project.putUserData(SHADERTOY_OUTPUT_WINDOW_KEY, shadertoyOutputWindow)
+        project.putUserData(SHADERTOY_OUTPUT_WINDOW_KEY, shadertoyConsoleWindow)
         
         // 注册生命周期管理：当Content被dispose时，也dispose浏览器组件
         Disposer.register(content) {
             project.putUserData(SHADERTOY_OUTPUT_WINDOW_KEY, null)
-            shadertoyOutputWindow.dispose()
+            shadertoyConsoleWindow.dispose()
         }
         
         toolWindow.contentManager.addContent(content)
@@ -45,9 +41,9 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
     /**
      * Shadertoy输出窗口，使用JOGL渲染后端显示Shader渲染内容
      */
-    class ShadertoyOutputWindow(
+    class ShadertoyConsoleWindow(
         private val project: Project,
-        private val toolWindow: ToolWindow
+        private val _toolWindow: ToolWindow
     ) : com.intellij.openapi.Disposable {
         
         private val renderBackend: RenderBackend
@@ -70,10 +66,10 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          */
         private fun subscribeToToolWindowResize() {
             // 监听 ToolWindow component 的尺寸变化，主动通知 Backend
-            toolWindow.component.addComponentListener(object : ComponentAdapter() {
+            _toolWindow.component.addComponentListener(object : ComponentAdapter() {
                 override fun componentResized(e: ComponentEvent?) {
-                    val width = toolWindow.component.width
-                    val height = toolWindow.component.height
+                    val width = _toolWindow.component.width
+                    val height = _toolWindow.component.height
                     
                     thisLogger().info("[ShadertoyOutputWindow] ToolWindow resized to ${width}x${height}, notifying backend")
                     
@@ -81,6 +77,23 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
                     renderBackend.onContainerResized(width, height)
                 }
             })
+        }
+
+        private fun subscribeToSTE_IDEProjectEvent() {
+            messageBusConnection.subscribe(
+                STE_IDEProjectEventListener.TOPIC,
+                object : STE_IDEProjectEventListener {
+                    override fun onShadertoyConsoleShown(project: Project, toolWindow: ToolWindow) {
+                        if (toolWindow == _toolWindow) {
+
+                        }
+                    }
+
+                    override fun onShadertoyConsoleHidden(project: Project, toolWindow: ToolWindow) {
+
+                    }
+                }
+            )
         }
 
         /**
@@ -117,12 +130,12 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
     
     companion object {
         private val SHADERTOY_OUTPUT_WINDOW_KEY = 
-            com.intellij.openapi.util.Key.create<ShadertoyOutputWindow>("SHADERTOY_OUTPUT_WINDOW")
+            com.intellij.openapi.util.Key.create<ShadertoyConsoleWindow>("SHADERTOY_OUTPUT_WINDOW")
         
         /**
          * 获取项目的ShadertoyOutputWindow实例
          */
-        fun getInstance(project: Project): ShadertoyOutputWindow? {
+        fun getInstance(project: Project): ShadertoyConsoleWindow? {
             return project.getUserData(SHADERTOY_OUTPUT_WINDOW_KEY)
         }
     }

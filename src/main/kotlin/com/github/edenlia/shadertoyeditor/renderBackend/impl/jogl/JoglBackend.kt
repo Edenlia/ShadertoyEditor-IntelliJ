@@ -14,6 +14,7 @@ import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.WIN
 import com.github.edenlia.shadertoyeditor.renderBackend.TexturePathResolver
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
 import com.github.edenlia.shadertoyeditor.services.ShaderCompileService
+import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
@@ -326,6 +327,14 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
         
         thisLogger().info("[JOGL] Initialization complete. Waiting for shader via loadShader()...")
         thisLogger().info("[JOGL] ================================================")
+
+        // load texture and compile shader
+        val shadertoyProjectManager = project.service<ShadertoyProjectManager>()
+        val compileService = project.service<ShaderCompileService>()
+        if (shadertoyProjectManager.getCurrentShadertoyProject() != null) {
+            loadProjectTextures(shadertoyProjectManager.getCurrentShadertoyProject())
+            compileService.compileShadertoyProject()
+        }
     }
 
     override fun display(drawable: GLAutoDrawable) {

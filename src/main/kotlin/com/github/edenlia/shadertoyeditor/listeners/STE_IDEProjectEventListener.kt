@@ -15,7 +15,7 @@ interface STE_IDEProjectEventListener {
      * 
      * @param shadertoyProject 新选中的项目，如果没有选中则为null
      */
-    fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?)
+    fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?) {}
     
     /**
      * Texture channel配置发生变化
