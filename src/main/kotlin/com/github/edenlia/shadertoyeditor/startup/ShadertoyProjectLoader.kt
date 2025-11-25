@@ -57,7 +57,7 @@ class ShadertoyProjectLoader : ProjectActivity {
         project.messageBus.connect().subscribe(
             STE_IDEProjectEventListener.TOPIC,
             object : STE_IDEProjectEventListener {
-                override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
+                override fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?) {
                     // 不处理项目变更事件，仅订阅 ToolWindow 事件
                 }
                 

@@ -260,8 +260,8 @@ void main() {
             .subscribe(
                 STE_IDEProjectEventListener.TOPIC,
                 object : STE_IDEProjectEventListener {
-                    override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
-                        handleProjectChanged(project)
+                    override fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?) {
+                        handleProjectChanged(shadertoyProject)
                     }
                 }
             )

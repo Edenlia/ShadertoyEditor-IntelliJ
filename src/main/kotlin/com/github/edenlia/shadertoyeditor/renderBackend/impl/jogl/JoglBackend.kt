@@ -1,6 +1,8 @@
 package com.github.edenlia.shadertoyeditor.renderBackend.impl.jogl
 
-import com.github.edenlia.shadertoyeditor.model.ShadertoyConfig
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEAppEventListener
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
+import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.renderBackend.DefaultBlackTexture
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
 import com.github.edenlia.shadertoyeditor.renderBackend.Texture
@@ -9,23 +11,23 @@ import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.LIN
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.MACOS
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.UNKNOWN
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.WINDOWS
+import com.github.edenlia.shadertoyeditor.services.TextureManager
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
+import com.intellij.util.messages.MessageBusConnection
 import com.jogamp.opengl.*
 import com.jogamp.opengl.awt.GLCanvas
 import com.jogamp.opengl.util.FPSAnimator
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
-import java.awt.FlowLayout
-import java.awt.GraphicsConfiguration
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.util.Calendar
 import javax.swing.*
-import javax.swing.border.Border
 import kotlin.math.max
 
 /**
@@ -95,8 +97,13 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     private val textureUpdateLock = Any()
     private val pendingTextureUpdates = mutableListOf<Pair<Int, Texture?>>()  // channelIndex -> texture
 
+    private val messageBusConnection: MessageBusConnection
+
     init {
         thisLogger().info("[JOGL] Creating JOGL Backend...")
+
+        // 订阅参考分辨率变更事件（Settings 修改时）
+        messageBusConnection = ApplicationManager.getApplication().messageBus.connect(this)
 
         // 创建状态标签
         statusLabel = JLabel("Initializing JOGL...", SwingConstants.CENTER).apply {
@@ -130,13 +137,79 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 //            add(statusLabel, BorderLayout.WEST)
 //        }
 
-
+        subscribeToRefCanvasResolutionChanges()
+        subscribeToShadertoyProjectChanges()
 
         // 在EDT初始化JOGL
         SwingUtilities.invokeLater {
             initializeJOGL()
         }
     }
+
+    /**
+     * 订阅分辨率变更事件
+     * @return MessageBusConnection 连接对象，用于后续手动断开
+     */
+    private fun subscribeToRefCanvasResolutionChanges() {
+        messageBusConnection.subscribe(STE_IDEAppEventListener.TOPIC, object : STE_IDEAppEventListener {
+            override fun onRefCanvasResolutionChanged(width: Int, height: Int) {
+                // 在UI线程中更新分辨率
+                SwingUtilities.invokeLater {
+                    updateRefCanvasResolution(width, height)
+                }
+            }
+        })
+    }
+
+    /**
+     * 订阅项目切换事件
+     */
+    private fun subscribeToShadertoyProjectChanges() {
+        messageBusConnection.subscribe(
+            STE_IDEProjectEventListener.TOPIC,
+            object : STE_IDEProjectEventListener {
+                override fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?) {
+                    if (shadertoyProject == null) {
+                        // 清空渲染 - 显示空白
+                        clearRender()
+                        // 清除所有texture
+                        TextureManager.clearAllTextures(project)
+                        thisLogger().info("[ShadertoyOutputWindow] Project cleared, showing blank")
+                    } else {
+                        thisLogger().info("[ShadertoyOutputWindow] Project changed to: ${shadertoyProject.name}")
+                        // 加载项目的texture
+                        SwingUtilities.invokeLater {
+                            TextureManager.loadProjectTextures(project, shadertoyProject)
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    /**
+     * 清空渲染内容
+     */
+    private fun clearRender() {
+        // 加载一个空shader，显示深灰色背景
+        val emptyShader = """
+                #version 330 core
+                precision highp float;
+                out vec4 fragColor;
+                
+                void main() {
+                    fragColor = vec4(0.15, 0.15, 0.15, 1.0); // 深灰色背景
+                }
+            """.trimIndent()
+
+        try {
+            loadShader(emptyShader)
+        } catch (e: Exception) {
+            thisLogger().warn("[ShadertoyOutputWindow] Failed to load empty shader", e)
+        }
+    }
+
+
 
     /**
      * 初始化JOGL和GLCanvas
@@ -190,6 +263,9 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
         thisLogger().info("[JOGL] OpenGL Vendor: ${gl.glGetString(GL.GL_VENDOR)}")
         thisLogger().info("[JOGL] OpenGL Renderer: ${gl.glGetString(GL.GL_RENDERER)}")
         thisLogger().info("[JOGL] GLSL Version: ${gl.glGetString(GL3.GL_SHADING_LANGUAGE_VERSION)}")
+
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
+        updateRefCanvasResolution(config.canvasRefWidth, config.canvasRefHeight)
 
         // 创建fullscreen quad
         createQuad(gl)

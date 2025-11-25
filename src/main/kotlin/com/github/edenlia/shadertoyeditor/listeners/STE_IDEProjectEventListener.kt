@@ -13,9 +13,9 @@ interface STE_IDEProjectEventListener {
     /**
      * 当前选中的Shadertoy项目发生变化
      * 
-     * @param project 新选中的项目，如果没有选中则为null
+     * @param shadertoyProject 新选中的项目，如果没有选中则为null
      */
-    fun onShadertoyProjectChanged(project: ShadertoyProject?)
+    fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?)
     
     /**
      * ShadertoyConsole ToolWindow 显示时触发

@@ -16,9 +16,8 @@ class STE_ToolWindowManagerListener(private val project: Project) : ToolWindowMa
     
     companion object {
         private const val SHADERTOY_CONSOLE_ID = "ShadertoyConsole"
+        private const val SHADERTOY_ID = "Shadertoy"
     }
-
-    private var wasVisible: Boolean? = null  // 跟踪上次的可见状态
 
     /**
      * ToolWindow 状态变化时触发

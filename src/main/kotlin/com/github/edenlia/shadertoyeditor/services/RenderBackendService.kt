@@ -42,14 +42,5 @@ class RenderBackendService(private val project: Project) : com.intellij.openapi.
         }
         backend = null
     }
-    
-    companion object {
-        /**
-         * 获取 Project 的 RenderBackendService 实例
-         */
-        fun getInstance(project: Project): RenderBackendService {
-            return project.getService(RenderBackendService::class.java)
-        }
-    }
 }
 

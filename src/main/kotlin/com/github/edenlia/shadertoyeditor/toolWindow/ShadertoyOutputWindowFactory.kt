@@ -14,6 +14,7 @@ import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
 import com.github.edenlia.shadertoyeditor.services.TextureManager
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
@@ -52,101 +53,19 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
         
         private val renderBackend: RenderBackend
         private val messageBusConnection: MessageBusConnection
-        
+
         init {
             // 从 Service 获取 RenderBackend（懒加载，每个 Project 一个实例）
-            renderBackend = RenderBackendService.getInstance(project).getBackend()
+            renderBackend = project.service<RenderBackendService>().getBackend()
             thisLogger().info("[ShadertoyOutputWindow] Got RenderBackend from service")
-            
-            // 启用渲染（ToolWindow 打开时）
-            renderBackend.enableRendering(true)
-            
+
             // 订阅参考分辨率变更事件（Settings 修改时）
-            messageBusConnection = subscribeToRefCanvasResolutionChanges()
-            
-            // 订阅项目切换事件
-            subscribeToProjectChanges()
-            
+            messageBusConnection = ApplicationManager.getApplication().messageBus.connect(this)
+
             // 监听 ToolWindow 尺寸变化（主动调用 Backend）
             subscribeToToolWindowResize()
-            
-            // 初始化分辨率
-            applyInitialResolution()
-        }
-        
-        /**
-         * 订阅分辨率变更事件
-         * @return MessageBusConnection 连接对象，用于后续手动断开
-         */
-        private fun subscribeToRefCanvasResolutionChanges(): MessageBusConnection {
-            val connection = ApplicationManager.getApplication().messageBus.connect(this)
-            connection.subscribe(STE_IDEAppEventListener.TOPIC, object : STE_IDEAppEventListener {
-                override fun onRefCanvasResolutionChanged(width: Int, height: Int) {
-                    // 在UI线程中更新分辨率
-                    SwingUtilities.invokeLater {
-                        updateRefCanvasResolution(width, height)
-                    }
-                }
-            })
-            return connection
         }
 
-
-        /**
-         * 更新参考分辨率（来自 Settings）
-         */
-        private fun updateRefCanvasResolution(width: Int, height: Int) {
-            renderBackend.updateRefCanvasResolution(width, height)
-        }
-        
-        /**
-         * 订阅项目切换事件
-         */
-        private fun subscribeToProjectChanges() {
-            messageBusConnection.subscribe(
-                STE_IDEProjectEventListener.TOPIC,
-                object : STE_IDEProjectEventListener {
-                    override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
-                        if (project == null) {
-                            // 清空渲染 - 显示空白
-                            clearRender()
-                            // 清除所有texture
-                            TextureManager.clearAllTextures(this@ShadertoyOutputWindow.project)
-                            thisLogger().info("[ShadertoyOutputWindow] Project cleared, showing blank")
-                        } else {
-                            thisLogger().info("[ShadertoyOutputWindow] Project changed to: ${project.name}")
-                            // 加载项目的texture
-                            SwingUtilities.invokeLater {
-                                TextureManager.loadProjectTextures(this@ShadertoyOutputWindow.project, project)
-                            }
-                        }
-                    }
-                }
-            )
-        }
-        
-        /**
-         * 清空渲染内容
-         */
-        private fun clearRender() {
-            // 加载一个空shader，显示深灰色背景
-            val emptyShader = """
-                #version 330 core
-                precision highp float;
-                out vec4 fragColor;
-                
-                void main() {
-                    fragColor = vec4(0.15, 0.15, 0.15, 1.0); // 深灰色背景
-                }
-            """.trimIndent()
-            
-            try {
-                renderBackend.loadShader(emptyShader)
-            } catch (e: Exception) {
-                thisLogger().warn("[ShadertoyOutputWindow] Failed to load empty shader", e)
-            }
-        }
-        
         /**
          * 监听 ToolWindow 尺寸变化
          */
@@ -164,27 +83,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
                 }
             })
         }
-        
-        /**
-         * 处理 ToolWindow 尺寸变化
-         * 使用当前的参考分辨率，根据新的 ToolWindow 大小重新计算真实渲染分辨率
-         */
-        private fun setToolWindowResolution() {
-            val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
-            renderBackend.updateRefCanvasResolution(config.canvasRefWidth, config.canvasRefHeight)
-        }
-        
-        /**
-         * 初始化分辨率（ToolWindow 首次打开时）
-         */
-        private fun applyInitialResolution() {
-            SwingUtilities.invokeLater {
-                // 延迟执行，确保 ToolWindow 完全初始化
-                Thread.sleep(500)
-                setToolWindowResolution()
-            }
-        }
-        
+
         /**
          * 获取窗口内容组件
          */

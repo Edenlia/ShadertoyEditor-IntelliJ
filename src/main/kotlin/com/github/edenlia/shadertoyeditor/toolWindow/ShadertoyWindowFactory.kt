@@ -145,8 +145,8 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                 .subscribe(
                     STE_IDEProjectEventListener.TOPIC,
                     object : STE_IDEProjectEventListener {
-                        override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
-                            thisLogger().info("[ShadertoyWindow] Project changed event received: ${project?.name ?: "null"}")
+                        override fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?) {
+                            thisLogger().info("[ShadertoyWindow] Project changed event received: ${shadertoyProject?.name ?: "null"}")
                             // 项目变更时刷新列表
                             SwingUtilities.invokeLater {
                                 thisLogger().info("[ShadertoyWindow] Processing project change in EDT")
@@ -157,8 +157,8 @@ class ShadertoyWindowFactory : ToolWindowFactory {
                                 updateTexturePanel()
                                 
                                 // 如果有新激活的项目，自动打开 Image.glsl
-                                if (project != null) {
-                                    openImageGlslFile(project)
+                                if (shadertoyProject != null) {
+                                    openImageGlslFile(shadertoyProject)
                                 }
                             }
                         }

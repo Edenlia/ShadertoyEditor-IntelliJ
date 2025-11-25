@@ -4,7 +4,9 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.SearchableConfigurable
 import com.intellij.openapi.project.ProjectManager
 import com.github.edenlia.shadertoyeditor.listeners.STE_IDEAppEventListener
+import com.github.edenlia.shadertoyeditor.services.MyProjectService
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import javax.swing.JComponent
 
@@ -82,7 +84,7 @@ class ShadertoyConfigurable : SearchableConfigurable {
             for (project in openProjects) {
                 try {
                     // 尝试获取 Backend（如果已经创建）
-                    val service = RenderBackendService.getInstance(project)
+                    val service = project.service<RenderBackendService>()
                     // 注意：这里直接调用 getBackend 会触发懒加载
                     // 但这是期望的行为，因为用户修改了设置，应该应用到所有 Backend
                     val backend = service.getBackend()
