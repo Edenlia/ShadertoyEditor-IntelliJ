@@ -1,6 +1,6 @@
 package com.github.edenlia.shadertoyeditor.services
 
-import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProjectConfig
 import com.intellij.openapi.application.ApplicationManager
@@ -227,7 +227,7 @@ class ShadertoyProjectManager(private val project: Project) {
         
         // 发送通知
         ApplicationManager.getApplication().messageBus
-            .syncPublisher(ShadertoyProjectChangedListener.TOPIC)
+            .syncPublisher(STE_IDEProjectEventListener.TOPIC)
             .onShadertoyProjectChanged(proj)
         
         val projectName = proj?.name ?: "None"

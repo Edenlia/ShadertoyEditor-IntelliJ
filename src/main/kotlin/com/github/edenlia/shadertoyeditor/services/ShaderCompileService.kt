@@ -1,6 +1,6 @@
 package com.github.edenlia.shadertoyeditor.services
 
-import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.LINUX
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.MACOS
@@ -258,8 +258,8 @@ void main() {
         ApplicationManager.getApplication().messageBus
             .connect(this)  // 使用 this 作为 parentDisposable，自动管理生命周期
             .subscribe(
-                ShadertoyProjectChangedListener.TOPIC,
-                object : ShadertoyProjectChangedListener {
+                STE_IDEProjectEventListener.TOPIC,
+                object : STE_IDEProjectEventListener {
                     override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
                         handleProjectChanged(project)
                     }

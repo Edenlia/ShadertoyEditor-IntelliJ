@@ -8,8 +8,8 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import com.intellij.util.messages.MessageBusConnection
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
-import com.github.edenlia.shadertoyeditor.listeners.RefCanvasResolutionChangedListener
-import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEAppEventListener
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
 import com.github.edenlia.shadertoyeditor.services.TextureManager
@@ -80,7 +80,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          */
         private fun subscribeToRefCanvasResolutionChanges(): MessageBusConnection {
             val connection = ApplicationManager.getApplication().messageBus.connect(this)
-            connection.subscribe(RefCanvasResolutionChangedListener.TOPIC, object : RefCanvasResolutionChangedListener {
+            connection.subscribe(STE_IDEAppEventListener.TOPIC, object : STE_IDEAppEventListener {
                 override fun onRefCanvasResolutionChanged(width: Int, height: Int) {
                     // 在UI线程中更新分辨率
                     SwingUtilities.invokeLater {
@@ -104,8 +104,8 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          */
         private fun subscribeToProjectChanges() {
             messageBusConnection.subscribe(
-                ShadertoyProjectChangedListener.TOPIC,
-                object : ShadertoyProjectChangedListener {
+                STE_IDEProjectEventListener.TOPIC,
+                object : STE_IDEProjectEventListener {
                     override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
                         if (project == null) {
                             // 清空渲染 - 显示空白

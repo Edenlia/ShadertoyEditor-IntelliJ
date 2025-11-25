@@ -3,7 +3,7 @@ package com.github.edenlia.shadertoyeditor.settings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.SearchableConfigurable
 import com.intellij.openapi.project.ProjectManager
-import com.github.edenlia.shadertoyeditor.listeners.RefCanvasResolutionChangedListener
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEAppEventListener
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
 import com.intellij.openapi.diagnostic.thisLogger
 import javax.swing.JComponent
@@ -69,7 +69,7 @@ class ShadertoyConfigurable : SearchableConfigurable {
             
             // 通过Application级别的MessageBus发送通知
             ApplicationManager.getApplication().messageBus
-                .syncPublisher(RefCanvasResolutionChangedListener.TOPIC)
+                .syncPublisher(STE_IDEAppEventListener.TOPIC)
                 .onRefCanvasResolutionChanged(newConfig.canvasRefWidth, newConfig.canvasRefHeight)
         }
         

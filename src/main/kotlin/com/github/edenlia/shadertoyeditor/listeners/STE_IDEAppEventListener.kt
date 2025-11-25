@@ -3,10 +3,9 @@ package com.github.edenlia.shadertoyeditor.listeners
 import com.intellij.util.messages.Topic
 
 /**
- * 分辨率变更监听器
- * 当用户在Settings中修改目标分辨率并Apply时触发
+ * 在IDE应用范围内监听事件的接口
  */
-interface RefCanvasResolutionChangedListener {
+interface STE_IDEAppEventListener {
     
     /**
      * 分辨率变更事件
@@ -23,7 +22,7 @@ interface RefCanvasResolutionChangedListener {
          */
         val TOPIC = Topic.create(
             "Shadertoy Resolution Changed",
-            RefCanvasResolutionChangedListener::class.java
+            STE_IDEAppEventListener::class.java
         )
     }
 }

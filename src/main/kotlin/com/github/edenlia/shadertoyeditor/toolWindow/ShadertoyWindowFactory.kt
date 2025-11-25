@@ -1,6 +1,6 @@
 package com.github.edenlia.shadertoyeditor.toolWindow
 
-import com.github.edenlia.shadertoyeditor.listeners.ShadertoyProjectChangedListener
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
 import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.intellij.openapi.actionSystem.ActionManager
@@ -143,8 +143,8 @@ class ShadertoyWindowFactory : ToolWindowFactory {
             ApplicationManager.getApplication().messageBus
                 .connect()
                 .subscribe(
-                    ShadertoyProjectChangedListener.TOPIC,
-                    object : ShadertoyProjectChangedListener {
+                    STE_IDEProjectEventListener.TOPIC,
+                    object : STE_IDEProjectEventListener {
                         override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
                             thisLogger().info("[ShadertoyWindow] Project changed event received: ${project?.name ?: "null"}")
                             // 项目变更时刷新列表
