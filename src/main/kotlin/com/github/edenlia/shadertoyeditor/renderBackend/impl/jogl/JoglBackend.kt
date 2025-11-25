@@ -11,7 +11,7 @@ import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.LIN
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.MACOS
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.UNKNOWN
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.WINDOWS
-import com.github.edenlia.shadertoyeditor.services.TextureManager
+import com.github.edenlia.shadertoyeditor.renderBackend.TexturePathResolver
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
@@ -96,6 +96,10 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     // 同步锁（用于线程安全）
     private val textureUpdateLock = Any()
     private val pendingTextureUpdates = mutableListOf<Pair<Int, Texture?>>()  // channelIndex -> texture
+    
+    // 当前激活的Shadertoy项目
+    @Volatile
+    private var currentProject: ShadertoyProject? = null
 
     private val messageBusConnection: MessageBusConnection
 
@@ -162,7 +166,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     }
 
     /**
-     * 订阅项目切换事件
+     * 订阅项目切换事件和texture变更事件
      */
     private fun subscribeToShadertoyProjectChanges() {
         messageBusConnection.subscribe(
@@ -173,14 +177,27 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
                         // 清空渲染 - 显示空白
                         clearRender()
                         // 清除所有texture
-                        TextureManager.clearAllTextures(project)
-                        thisLogger().info("[ShadertoyOutputWindow] Project cleared, showing blank")
+                        clearAllChannels()
+                        thisLogger().info("[JoglBackend] Project cleared, showing blank")
                     } else {
-                        thisLogger().info("[ShadertoyOutputWindow] Project changed to: ${shadertoyProject.name}")
-                        // 加载项目的texture
-                        SwingUtilities.invokeLater {
-                            TextureManager.loadProjectTextures(project, shadertoyProject)
-                        }
+                        thisLogger().info("[JoglBackend] Project changed to: ${shadertoyProject.name}")
+                        // 记录当前项目
+                        currentProject = shadertoyProject
+                        // 加载项目的所有textures
+                        loadProjectTextures(shadertoyProject)
+                    }
+                }
+                
+                override fun onTextureChannelChanged(
+                    shadertoyProject: ShadertoyProject,
+                    channelIndex: Int,
+                    texturePath: String?
+                ) {
+                    // 只有当变更的是当前激活项目时才加载texture
+                    if (shadertoyProject == currentProject) {
+                        loadChannelTexture(channelIndex, texturePath)
+                    } else {
+                        thisLogger().info("[JoglBackend] Texture changed for non-active project, ignoring")
                     }
                 }
             }
@@ -876,6 +893,60 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
         gl.glBindTexture(GL.GL_TEXTURE_2D, 0)
         
         return textureId
+    }
+    
+    /**
+     * 加载项目的所有textures
+     */
+    private fun loadProjectTextures(shadertoyProject: ShadertoyProject) {
+        thisLogger().info("[JoglBackend] Loading all textures for project: ${shadertoyProject.name}")
+        
+        for (i in 0 until 4) {
+            val texturePath = shadertoyProject.getChannelTexture(i)
+            loadChannelTexture(i, texturePath)
+        }
+        
+        thisLogger().info("[JoglBackend] All textures loaded for project: ${shadertoyProject.name}")
+    }
+    
+    /**
+     * 加载单个channel的texture
+     * 
+     * @param channelIndex channel索引（0-3）
+     * @param texturePath 相对路径，null表示使用默认texture
+     */
+    private fun loadChannelTexture(channelIndex: Int, texturePath: String?) {
+        try {
+            val texture = if (texturePath != null) {
+                TexturePathResolver.resolveTexture(project, texturePath)
+            } else {
+                null  // 使用默认黑色texture
+            }
+            
+            setChannelTexture(channelIndex, texture)
+            
+            if (texturePath != null) {
+                thisLogger().info("[JoglBackend] Channel $channelIndex loaded: $texturePath")
+            } else {
+                thisLogger().info("[JoglBackend] Channel $channelIndex using default texture")
+            }
+        } catch (e: Exception) {
+            thisLogger().warn("[JoglBackend] Failed to load texture for channel $channelIndex: $texturePath", e)
+            
+            // 显示错误提示
+            SwingUtilities.invokeLater {
+                JOptionPane.showMessageDialog(
+                    rootPanel,
+                    "Failed to load texture for iChannel$channelIndex: ${e.message}\n" +
+                    "Falling back to default black texture.",
+                    "Texture Load Error",
+                    JOptionPane.WARNING_MESSAGE
+                )
+            }
+            
+            // 回退到默认texture
+            setChannelTexture(channelIndex, null)
+        }
     }
 }
 

@@ -18,6 +18,19 @@ interface STE_IDEProjectEventListener {
     fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?)
     
     /**
+     * Texture channel配置发生变化
+     * 
+     * @param shadertoyProject 所属的Shadertoy项目
+     * @param channelIndex channel索引（0-3）
+     * @param texturePath 相对路径，null表示清除texture使用默认
+     */
+    fun onTextureChannelChanged(
+        shadertoyProject: ShadertoyProject,
+        channelIndex: Int,
+        texturePath: String?
+    ) {}
+    
+    /**
      * ShadertoyConsole ToolWindow 显示时触发
      * 
      * @param project 当前IDE项目

@@ -1,10 +1,12 @@
 package com.github.edenlia.shadertoyeditor.toolWindow
 
 import com.github.edenlia.shadertoyeditor.dialogs.TextureSelectionDialog
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.renderBackend.DefaultBlackTexture
 import com.github.edenlia.shadertoyeditor.renderBackend.Texture
 import com.github.edenlia.shadertoyeditor.renderBackend.TexturePathResolver
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -23,8 +25,7 @@ import javax.swing.*
 class TextureSelector(
     private val channelIndex: Int,
     private val project: Project,
-    private val shadertoyProject: ShadertoyProject,
-    private val onTextureChanged: () -> Unit
+    private val shadertoyProject: ShadertoyProject
 ) : JPanel(BorderLayout()) {
     
     private val previewLabel: JLabel
@@ -76,21 +77,16 @@ class TextureSelector(
         val dialog = TextureSelectionDialog(project, this)
         if (dialog.showAndGet()) {
             val selectedPath = dialog.getSelectedTexturePath()
-            
-            // 保存到项目配置
-            shadertoyProject.setChannelTexture(channelIndex, selectedPath)
-            
-            // 保存配置
-            val projectManager = com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager.getInstance(project)
-            projectManager.saveConfig()
-            
+
+            // 发送texture变更事件
+            ApplicationManager.getApplication().messageBus
+                .syncPublisher(STE_IDEProjectEventListener.TOPIC)
+                .onTextureChannelChanged(shadertoyProject, channelIndex, selectedPath)
+
             // 重新加载预览
             loadCurrentTexture()
-            
-            // 通知外部texture已更改
-            onTextureChanged()
-            
-            thisLogger().info("[TextureSelector] Channel $channelIndex texture set to: $selectedPath")
+
+            thisLogger().info("[TextureSelector] Channel $channelIndex texture changed, event sent: $selectedPath")
         }
     }
     

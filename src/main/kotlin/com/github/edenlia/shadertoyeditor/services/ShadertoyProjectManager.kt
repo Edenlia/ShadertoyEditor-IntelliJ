@@ -46,6 +46,37 @@ class ShadertoyProjectManager(private val project: Project) {
         thisLogger().info("[ShadertoyProjectManager] Initializing...")
         loadConfig()
         thisLogger().info("[ShadertoyProjectManager] Loaded ${config.projects.size} projects")
+        
+        // 订阅texture变更事件
+        subscribeToTextureChanges()
+    }
+    
+    /**
+     * 订阅texture变更事件，保存配置
+     */
+    private fun subscribeToTextureChanges() {
+        project.messageBus.connect().subscribe(
+            STE_IDEProjectEventListener.TOPIC,
+            object : STE_IDEProjectEventListener {
+                override fun onShadertoyProjectChanged(shadertoyProject: ShadertoyProject?) {
+                    // 不处理项目切换事件
+                }
+                
+                override fun onTextureChannelChanged(
+                    shadertoyProject: ShadertoyProject,
+                    channelIndex: Int,
+                    texturePath: String?
+                ) {
+                    // 更新项目配置中的texture路径
+                    shadertoyProject.setChannelTexture(channelIndex, texturePath)
+                    
+                    // 保存配置
+                    saveConfig()
+                    
+                    thisLogger().info("[ShadertoyProjectManager] Texture updated and saved: ${shadertoyProject.name} channel$channelIndex -> $texturePath")
+                }
+            }
+        )
     }
     
     /**

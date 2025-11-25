@@ -1,7 +1,6 @@
 package com.github.edenlia.shadertoyeditor.toolWindow
 
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
-import com.github.edenlia.shadertoyeditor.services.TextureManager
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import java.awt.GridLayout
@@ -21,11 +20,7 @@ class TextureChannelPanel(
         TextureSelector(
             index,
             project,
-            shadertoyProject,
-            onTextureChanged = {
-                // Texture更改后，重新加载到RenderBackend
-                TextureManager.loadProjectTextures(project, shadertoyProject)
-            }
+            shadertoyProject
         )
     }
     
@@ -43,11 +38,6 @@ class TextureChannelPanel(
             javax.swing.BorderFactory.createEtchedBorder(),
             "Texture Channels"
         )
-        thisLogger().info("[TextureChannelPanel] Border set")
-        
-        // 初始加载texture
-        thisLogger().info("[TextureChannelPanel] Loading project textures")
-        TextureManager.loadProjectTextures(project, shadertoyProject)
         thisLogger().info("[TextureChannelPanel] Panel creation complete")
     }
     

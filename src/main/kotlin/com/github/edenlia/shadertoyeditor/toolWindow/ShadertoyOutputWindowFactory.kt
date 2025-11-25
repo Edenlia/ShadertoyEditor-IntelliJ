@@ -12,7 +12,6 @@ import com.github.edenlia.shadertoyeditor.listeners.STE_IDEAppEventListener
 import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
 import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
-import com.github.edenlia.shadertoyeditor.services.TextureManager
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
