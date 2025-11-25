@@ -170,7 +170,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
          * 使用当前的参考分辨率，根据新的 ToolWindow 大小重新计算真实渲染分辨率
          */
         private fun setToolWindowResolution() {
-            val config = ShadertoySettings.getInstance().getConfig()
+            val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
             renderBackend.updateRefCanvasResolution(config.canvasRefWidth, config.canvasRefHeight)
         }
         

@@ -49,14 +49,5 @@ class ShadertoySettings : PersistentStateComponent<ShadertoySettings> {
     override fun loadState(state: ShadertoySettings) {
         XmlSerializerUtil.copyBean(state, this)
     }
-    
-    companion object {
-        /**
-         * 获取服务实例（全局单例）
-         */
-        fun getInstance(): ShadertoySettings {
-            return service<ShadertoySettings>()
-        }
-    }
 }
 

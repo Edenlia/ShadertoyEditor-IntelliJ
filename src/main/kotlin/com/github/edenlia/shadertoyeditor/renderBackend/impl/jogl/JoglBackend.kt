@@ -370,7 +370,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
         thisLogger().info("[JOGL] Container resized to ${width}x${height}")
         
         // 重新计算并应用分辨率
-        val config = ShadertoySettings.getInstance().getConfig()
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
         updateRefCanvasResolution(config.canvasRefWidth, config.canvasRefHeight)
     }
     
@@ -416,8 +416,9 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
     private fun calculateRealCanvasResolution()
     {
-        val refCanvasWidth = ShadertoySettings.getInstance().getConfig().canvasRefWidth
-        val refCanvasHeight = ShadertoySettings.getInstance().getConfig().canvasRefHeight
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
+        val refCanvasWidth = config.canvasRefWidth
+        val refCanvasHeight = config.canvasRefHeight
 
         val toolWindowWidth = max(containerWidth, 1)
         val toolWindowHeight = max(containerHeight, 1)
@@ -626,7 +627,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     }
 
     private fun getPhysicalCanvasWidth(drawable: GLAutoDrawable, canvas: GLCanvas?): Int {
-        val globalEnv = GlobalEnvService.getInstance()
+        val globalEnv = com.intellij.openapi.components.service<GlobalEnvService>()
 
         val physicalScaleX = when (globalEnv.currentPlatform) {
             WINDOWS -> glCanvas?.graphicsConfiguration?.defaultTransform?.scaleX ?: 1.0
@@ -639,7 +640,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     }
 
     private fun getPhysicalCanvasHeight(drawable: GLAutoDrawable, canvas: GLCanvas?): Int {
-        val globalEnv = GlobalEnvService.getInstance()
+        val globalEnv = com.intellij.openapi.components.service<GlobalEnvService>()
 
         val physicalScaleY = when (globalEnv.currentPlatform) {
             WINDOWS -> glCanvas?.graphicsConfiguration?.defaultTransform?.scaleY ?: 1.0

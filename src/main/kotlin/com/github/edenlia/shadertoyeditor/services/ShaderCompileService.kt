@@ -209,7 +209,7 @@ class ShaderCompileService(private val project: Project) : Disposable {
      */
     private fun wrapShaderCode(userGlslCode: String): String {
         // 使用全局环境服务获取平台信息
-        val globalEnv = GlobalEnvService.getInstance()
+        val globalEnv = com.intellij.openapi.components.service<GlobalEnvService>()
 
         val platformDefinition = when (globalEnv.currentPlatform) {
             WINDOWS -> "#define PLATFORM_WINDOWS"
@@ -335,7 +335,7 @@ void main() {
         }
         
         // 2. 检查配置：是否开启了自动编译
-        val config = ShadertoySettings.getInstance().getConfig()
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
         if (!config.autoCompileOnSave) {
             thisLogger().info("[ShaderCompileService] Auto-compile disabled in settings, skip")
             return

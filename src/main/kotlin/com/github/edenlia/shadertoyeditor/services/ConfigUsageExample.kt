@@ -12,7 +12,7 @@ object ConfigUsageExample {
      * 获取配置的用户名
      */
     fun getUsername(): String {
-        val config = ShadertoySettings.getInstance().getConfig()
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
         return config.username
     }
     
@@ -20,7 +20,7 @@ object ConfigUsageExample {
      * 获取配置的密码
      */
     fun getPassword(): String {
-        val config = ShadertoySettings.getInstance().getConfig()
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
         return config.password
     }
     
@@ -28,7 +28,7 @@ object ConfigUsageExample {
      * 检查是否已配置登录信息
      */
     fun hasLoginCredentials(): Boolean {
-        val config = ShadertoySettings.getInstance().getConfig()
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
         return config.username.isNotEmpty() && config.password.isNotEmpty()
     }
     
@@ -36,7 +36,7 @@ object ConfigUsageExample {
      * 示例：使用配置进行登录
      */
     fun login() {
-        val config = ShadertoySettings.getInstance().getConfig()
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
         
         if (hasLoginCredentials()) {
             println("=================================")

@@ -65,14 +65,5 @@ class GlobalEnvService {
      * 判断是否为Linux平台
      */
     fun isLinux(): Boolean = currentPlatform == Platform.LINUX
-    
-    companion object {
-        /**
-         * 获取GlobalEnvService实例
-         */
-        fun getInstance(): GlobalEnvService {
-            return com.intellij.openapi.components.service()
-        }
-    }
 }
 

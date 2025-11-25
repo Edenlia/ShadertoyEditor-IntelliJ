@@ -39,7 +39,7 @@ class ShadertoyConfigurable : SearchableConfigurable {
             settingsUI = ShadertoySettingsUI()
         }
         // 加载当前配置到 UI
-        settingsUI?.reset(ShadertoySettings.getInstance().getConfig())
+        settingsUI?.reset(com.intellij.openapi.components.service<ShadertoySettings>().getConfig())
         return settingsUI?.getPanel()
     }
     
@@ -47,7 +47,7 @@ class ShadertoyConfigurable : SearchableConfigurable {
      * 检查配置是否被修改
      */
     override fun isModified(): Boolean {
-        val config = ShadertoySettings.getInstance().getConfig()
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
         return settingsUI?.isModified(config) ?: false
     }
     
@@ -56,7 +56,7 @@ class ShadertoyConfigurable : SearchableConfigurable {
      * Apply后通过MessageBus通知所有监听器，并更新Backend设置
      */
     override fun apply() {
-        val settings = ShadertoySettings.getInstance()
+        val settings = com.intellij.openapi.components.service<ShadertoySettings>()
         val oldConfig = settings.getConfig()
         val newConfig = oldConfig.clone() // 克隆避免直接修改
         
@@ -99,7 +99,7 @@ class ShadertoyConfigurable : SearchableConfigurable {
      * 重置配置到上次保存的状态
      */
     override fun reset() {
-        val config = ShadertoySettings.getInstance().getConfig()
+        val config = com.intellij.openapi.components.service<ShadertoySettings>().getConfig()
         settingsUI?.reset(config)
     }
     
