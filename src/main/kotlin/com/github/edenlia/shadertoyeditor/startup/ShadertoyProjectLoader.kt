@@ -1,11 +1,14 @@
 package com.github.edenlia.shadertoyeditor.startup
 
+import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
+import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.services.ShaderCompileService
 import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
+import com.intellij.openapi.wm.ToolWindow
 
 /**
  * Shadertoy项目启动加载器
@@ -37,9 +40,37 @@ class ShadertoyProjectLoader : ProjectActivity {
             val compileService = project.service<ShaderCompileService>()
             thisLogger().info("[ShadertoyProjectLoader] ShaderCompileService initialized")
             
+            // 3. 订阅 ToolWindow 状态变化事件（示例：输出日志）
+            subscribeToToolWindowEvents(project)
+            
         } catch (e: Exception) {
             thisLogger().error("[ShadertoyProjectLoader] Failed to initialize Shadertoy Editor", e)
         }
+    }
+    
+    /**
+     * 订阅 IDE Project 级别事件
+     * 
+     * 示例：监听 ShadertoyConsole 的打开和关闭，输出日志
+     */
+    private fun subscribeToToolWindowEvents(project: Project) {
+        project.messageBus.connect().subscribe(
+            STE_IDEProjectEventListener.TOPIC,
+            object : STE_IDEProjectEventListener {
+                override fun onShadertoyProjectChanged(project: ShadertoyProject?) {
+                    // 不处理项目变更事件，仅订阅 ToolWindow 事件
+                }
+                
+                override fun onShadertoyConsoleShown(project: Project, toolWindow: ToolWindow) {
+                    thisLogger().info("✅ [ToolWindow Event] ShadertoyConsole 已打开 - Project: ${project.name}, ToolWindow ID: ${toolWindow.id}")
+                }
+                
+                override fun onShadertoyConsoleHidden(project: Project, toolWindow: ToolWindow) {
+                    thisLogger().info("❌ [ToolWindow Event] ShadertoyConsole 已关闭 - Project: ${project.name}, ToolWindow ID: ${toolWindow.id}")
+                }
+            }
+        )
+        thisLogger().info("[ShadertoyProjectLoader] IDE Project event listener registered")
     }
 }
 

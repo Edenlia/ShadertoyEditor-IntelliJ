@@ -23,6 +23,13 @@
             id="shadertoy.editor.settings"
             instance="com.github.edenlia.shadertoyeditor.settings.ShadertoyConfigurable"/>
     </extensions>
+
+    <projectListeners>
+        <listener
+                class="com.github.edenlia.shadertoyeditor.listeners.STE_ToolWindowManagerListener"
+                topic="com.intellij.openapi.wm.ex.ToolWindowManagerListener"/>
+    </projectListeners>
+
     <actions>
         <action id="shadertoy.HelloWorldAction" class="HelloWorldAction" text="HelloWorldAction">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
