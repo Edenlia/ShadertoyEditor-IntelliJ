@@ -11,6 +11,7 @@ import com.github.edenlia.shadertoyeditor.toolWindow.ShadertoyOutputWindowFactor
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -79,7 +80,7 @@ class ShaderCompileService(private val project: Project) : Disposable {
      * 这是一个高级方法，包含完整的编译流程：检查激活项目、DumbService、输出窗口等
      */
     fun compileShadertoyProject() {
-        val projectManager = ShadertoyProjectManager.getInstance(project)
+        val projectManager = project.service<ShadertoyProjectManager>()
         val currentProject = projectManager.getCurrentShadertoyProject()
         
         // 检查是否有激活的项目
@@ -101,7 +102,7 @@ class ShaderCompileService(private val project: Project) : Disposable {
             }
             return
         }
-        
+
         try {
             // 获取 ShadertoyOutput 窗口实例
             val outputWindow = ShadertoyOutputWindowFactory.getInstance(project)

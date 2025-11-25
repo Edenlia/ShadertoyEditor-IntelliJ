@@ -3,6 +3,7 @@ package com.github.edenlia.shadertoyeditor.actions
 import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.ui.Messages
 
@@ -14,7 +15,7 @@ class RemoveProjectAction : AnAction() {
     
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val projectManager = ShadertoyProjectManager.getInstance(project)
+        val projectManager = project.service<ShadertoyProjectManager>()
         
         val currentProj = projectManager.getCurrentShadertoyProject()
         if (currentProj == null) {
@@ -41,7 +42,7 @@ class RemoveProjectAction : AnAction() {
     
     override fun update(e: AnActionEvent) {
         val project = e.project ?: return
-        val projectManager = ShadertoyProjectManager.getInstance(project)
+        val projectManager = project.service<ShadertoyProjectManager>()
         
         // 只有选中项目时才启用按钮
         e.presentation.isEnabled = projectManager.getCurrentShadertoyProject() != null

@@ -7,6 +7,7 @@ import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.ui.Messages
 
@@ -17,7 +18,7 @@ class NewProjectAction : AnAction() {
     
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val projectManager = ShadertoyProjectManager.getInstance(project)
+        val projectManager = project.service<ShadertoyProjectManager>()
         
         val dialog = CreateShadertoyProjectDialog(project)
         if (dialog.showAndGet()) {

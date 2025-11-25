@@ -27,18 +27,9 @@ import java.io.File
  */
 @Service(Service.Level.PROJECT)
 class ShadertoyProjectManager(private val project: Project) {
-    
-    companion object {
-        private const val CONFIG_FILE_NAME = ".shadertoy-editor.config.yml"
-        
-        /**
-         * 获取项目的ShadertoyProjectManager实例
-         */
-        fun getInstance(project: Project): ShadertoyProjectManager {
-            return project.getService(ShadertoyProjectManager::class.java)
-        }
-    }
-    
+
+    private val CONFIG_FILE_NAME = ".shadertoy-editor.config.yml"
+
     private var config: ShadertoyProjectConfig = ShadertoyProjectConfig()
     private var currentProject: ShadertoyProject? = null
     

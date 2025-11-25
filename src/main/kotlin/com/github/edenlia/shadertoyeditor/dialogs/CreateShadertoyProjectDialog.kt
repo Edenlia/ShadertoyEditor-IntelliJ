@@ -1,6 +1,7 @@
 package com.github.edenlia.shadertoyeditor.dialogs
 
 import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.ValidationInfo
@@ -19,7 +20,7 @@ class CreateShadertoyProjectDialog(
     private val project: Project
 ) : DialogWrapper(project) {
     
-    private val projectManager = ShadertoyProjectManager.getInstance(project)
+    private val projectManager = project.service<ShadertoyProjectManager>()
     private val nameField = JBTextField()
     private val pathField = JBTextField()
     private val pathPreviewLabel = com.intellij.ui.components.JBLabel()

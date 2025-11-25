@@ -25,7 +25,7 @@ class ShadertoyProjectLoader : ProjectActivity {
         
         try {
             // 1. 获取项目管理器实例（这会触发init块，自动加载配置）
-            val projectManager = ShadertoyProjectManager.getInstance(project)
+            val projectManager = project.service<ShadertoyProjectManager>()
             
             val projectCount = projectManager.getAllProjects().size
             thisLogger().info("[ShadertoyProjectLoader] Loaded $projectCount Shadertoy project(s)")

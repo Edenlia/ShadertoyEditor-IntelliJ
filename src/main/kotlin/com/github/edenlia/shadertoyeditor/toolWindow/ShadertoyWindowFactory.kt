@@ -6,6 +6,7 @@ import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
@@ -48,7 +49,7 @@ class ShadertoyWindowFactory : ToolWindowFactory {
         // 动态获取，不缓存，确保在IDE项目切换时能获取到正确的project
         private fun getIDEProject(): Project = toolWindow.project
         private fun getShadertoyProjectManager(): ShadertoyProjectManager =
-            ShadertoyProjectManager.getInstance(getIDEProject())
+            getIDEProject().service<ShadertoyProjectManager>()
         
         private val shadertoyProjectListModel = DefaultListModel<ShadertoyProject>()
         private val shadertoyProjectList = JBList(shadertoyProjectListModel)

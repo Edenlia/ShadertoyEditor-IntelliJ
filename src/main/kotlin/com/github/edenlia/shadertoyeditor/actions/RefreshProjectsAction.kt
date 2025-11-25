@@ -6,6 +6,7 @@ import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 
 /**
@@ -16,7 +17,7 @@ class RefreshProjectsAction : AnAction() {
     
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val projectManager = ShadertoyProjectManager.getInstance(project)
+        val projectManager = project.service<ShadertoyProjectManager>()
         
         try {
             // 重新加载配置
