@@ -1,5 +1,6 @@
 package com.github.edenlia.shadertoyeditor.renderBackend.impl.jcef
 
+import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
 import com.github.edenlia.shadertoyeditor.renderBackend.Texture
 import com.intellij.openapi.project.Project
@@ -59,6 +60,10 @@ class JCefBackend(
     }
 
     override fun clearAllChannels() {
+        throw UnsupportedOperationException("JCEF backend is not supported")
+    }
+
+    override fun loadProjectTextures(shadertoyProject: ShadertoyProject?) {
         throw UnsupportedOperationException("JCEF backend is not supported")
     }
 

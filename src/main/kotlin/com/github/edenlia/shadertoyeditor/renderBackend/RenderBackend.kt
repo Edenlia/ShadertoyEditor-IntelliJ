@@ -1,5 +1,6 @@
 package com.github.edenlia.shadertoyeditor.renderBackend
 
+import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.intellij.openapi.Disposable
 import javax.swing.JComponent
 
@@ -87,5 +88,7 @@ interface RenderBackend : Disposable {
      * 清除所有channel的texture（恢复到默认黑色texture）
      */
     fun clearAllChannels()
+
+    fun loadProjectTextures(shadertoyProject: ShadertoyProject?)
 }
 

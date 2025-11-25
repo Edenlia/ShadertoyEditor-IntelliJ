@@ -13,6 +13,7 @@ import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.UNK
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.WINDOWS
 import com.github.edenlia.shadertoyeditor.renderBackend.TexturePathResolver
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
+import com.github.edenlia.shadertoyeditor.services.ShaderCompileService
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
@@ -187,6 +188,8 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
                         currentProject = shadertoyProject
                         // 加载项目的所有textures
                         loadProjectTextures(shadertoyProject)
+                        val shaderCompileService = project.service<ShaderCompileService>()
+                        shaderCompileService.compileShadertoyProject()
                     }
                 }
                 
@@ -905,7 +908,16 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     /**
      * 加载项目的所有textures
      */
-    private fun loadProjectTextures(shadertoyProject: ShadertoyProject) {
+    override fun loadProjectTextures(shadertoyProject: ShadertoyProject?) {
+        if (shadertoyProject == null) {
+            // 清空渲染 - 显示空白
+            clearRender()
+            // 清除所有texture
+            clearAllChannels()
+            thisLogger().info("[JoglBackend] Project cleared, showing blank")
+            return
+        }
+
         thisLogger().info("[JoglBackend] Loading all textures for project: ${shadertoyProject.name}")
         
         for (i in 0 until 4) {

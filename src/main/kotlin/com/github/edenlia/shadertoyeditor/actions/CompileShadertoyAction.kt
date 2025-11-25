@@ -1,6 +1,8 @@
 package com.github.edenlia.shadertoyeditor.actions
 
+import com.github.edenlia.shadertoyeditor.services.RenderBackendService
 import com.github.edenlia.shadertoyeditor.services.ShaderCompileService
+import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
@@ -16,8 +18,10 @@ class CompileShadertoyAction : AnAction() {
      */
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        
+        val shadertoyProjectManager = project.service<ShadertoyProjectManager>()
+        val renderBackendService = project.service<RenderBackendService>()
         val compileService = project.service<ShaderCompileService>()
+        renderBackendService.getBackend().loadProjectTextures(shadertoyProjectManager.getCurrentShadertoyProject())
         compileService.compileShadertoyProject()
     }
 }
