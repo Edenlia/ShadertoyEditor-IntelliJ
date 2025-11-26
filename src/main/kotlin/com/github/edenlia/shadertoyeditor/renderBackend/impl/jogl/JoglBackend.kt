@@ -204,22 +204,6 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
                         thisLogger().info("[JoglBackend] Texture changed for non-active project, ignoring")
                     }
                 }
-                
-                override fun onShadertoyProjectCompiled(shadertoyProject: ShadertoyProject) {
-                    // 只有当编译的是当前激活项目时才加载shader
-                    if (shadertoyProject == currentProject) {
-                        thisLogger().info("[JoglBackend] Shader compiled for active project, loading...")
-                        val projectManager = project.service<ShadertoyProjectManager>()
-                        val warppedShader = projectManager.getWarppedGlslShader(shadertoyProject)
-                        if (warppedShader != null) {
-                            loadShader(warppedShader)
-                        } else {
-                            thisLogger().warn("[JoglBackend] No cached shader code found for: ${shadertoyProject.name}")
-                        }
-                    } else {
-                        thisLogger().info("[JoglBackend] Shader compiled for non-active project, ignoring")
-                    }
-                }
             }
         )
     }

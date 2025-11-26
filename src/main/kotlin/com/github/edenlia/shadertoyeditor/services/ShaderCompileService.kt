@@ -110,13 +110,11 @@ class ShaderCompileService(private val project: Project) : Disposable {
             
             // 缓存到 ProjectManager
             val projectManager = project.service<ShadertoyProjectManager>()
+            val renderBackendService = project.service<RenderBackendService>()
             projectManager.cacheWarppedShader(shadertoyProject, warppedShader)
-            
-            // 发布编译完成事件
-            ApplicationManager.getApplication().messageBus
-                .syncPublisher(STE_IDEProjectEventListener.TOPIC)
-                .onShadertoyProjectCompiled(shadertoyProject)
-            
+
+            renderBackendService.getBackend().loadShader(warppedShader)
+
             thisLogger().info("[ShaderCompileService] Shader compiled and cached successfully: ${shadertoyProject.name}")
             
         } catch (e: Exception) {
