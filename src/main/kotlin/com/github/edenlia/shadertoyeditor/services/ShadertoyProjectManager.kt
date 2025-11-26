@@ -288,7 +288,7 @@ class ShadertoyProjectManager(private val project: Project) {
      * @param shadertoyProject Shadertoy项目
      * @param code 编译后的完整Shader代码
      */
-    fun cacheShaderCode(shadertoyProject: ShadertoyProject, code: String) {
+    fun cacheWarppedShader(shadertoyProject: ShadertoyProject, code: String) {
         compiledShaderCodeCache[shadertoyProject.path] = code
         thisLogger().info("[ShadertoyProjectManager] Cached shader code for: ${shadertoyProject.name}")
     }
@@ -299,7 +299,7 @@ class ShadertoyProjectManager(private val project: Project) {
      * @param shadertoyProject Shadertoy项目
      * @return 缓存的Shader代码，如果没有缓存则返回null
      */
-    fun getCachedShaderCode(shadertoyProject: ShadertoyProject): String? {
+    fun getWarppedGlslShader(shadertoyProject: ShadertoyProject): String? {
         return compiledShaderCodeCache[shadertoyProject.path]
     }
 }

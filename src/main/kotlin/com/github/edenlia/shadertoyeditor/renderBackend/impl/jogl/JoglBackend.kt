@@ -12,7 +12,6 @@ import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.MAC
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.UNKNOWN
 import com.github.edenlia.shadertoyeditor.services.GlobalEnvService.Platform.WINDOWS
 import com.github.edenlia.shadertoyeditor.renderBackend.TexturePathResolver
-import com.github.edenlia.shadertoyeditor.services.RenderBackendService
 import com.github.edenlia.shadertoyeditor.services.ShaderCompileService
 import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
 import com.github.edenlia.shadertoyeditor.settings.ShadertoySettings
@@ -25,7 +24,6 @@ import com.intellij.ui.JBColor
 import com.intellij.util.messages.MessageBusConnection
 import com.jogamp.opengl.*
 import com.jogamp.opengl.awt.GLCanvas
-import com.jogamp.opengl.util.AnimatorBase
 import com.jogamp.opengl.util.FPSAnimator
 import java.awt.BorderLayout
 import java.awt.Color
@@ -212,9 +210,9 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
                     if (shadertoyProject == currentProject) {
                         thisLogger().info("[JoglBackend] Shader compiled for active project, loading...")
                         val projectManager = project.service<ShadertoyProjectManager>()
-                        val shaderCode = projectManager.getCachedShaderCode(shadertoyProject)
-                        if (shaderCode != null) {
-                            loadShader(shaderCode)
+                        val warppedShader = projectManager.getWarppedGlslShader(shadertoyProject)
+                        if (warppedShader != null) {
+                            loadShader(warppedShader)
                         } else {
                             thisLogger().warn("[JoglBackend] No cached shader code found for: ${shadertoyProject.name}")
                         }
