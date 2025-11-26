@@ -21,8 +21,10 @@ class CompileShadertoyAction : AnAction() {
         val shadertoyProjectManager = project.service<ShadertoyProjectManager>()
         val renderBackendService = project.service<RenderBackendService>()
         val compileService = project.service<ShaderCompileService>()
-        renderBackendService.getBackend().loadProjectTextures(shadertoyProjectManager.getCurrentShadertoyProject())
-        compileService.compileShadertoyProject()
+        
+        val currentProject = shadertoyProjectManager.getCurrentShadertoyProject()
+        renderBackendService.getBackend().loadProjectTextures(currentProject)
+        compileService.compileShadertoyProject(currentProject)
     }
 }
 

@@ -33,6 +33,13 @@ class ShadertoyProjectManager(private val project: Project) {
     private var config: ShadertoyProjectConfig = ShadertoyProjectConfig()
     private var currentProject: ShadertoyProject? = null
     
+    /**
+     * 编译后的Shader代码缓存
+     * Key: 项目的相对路径 (ShadertoyProject.path)
+     * Value: 编译后的完整Shader代码
+     */
+    private val compiledShaderCodeCache = mutableMapOf<String, String>()
+    
     init {
         thisLogger().info("[ShadertoyProjectManager] Initializing...")
         loadConfig()
@@ -229,6 +236,9 @@ class ShadertoyProjectManager(private val project: Project) {
             setCurrentShadertoyProject(null)
         }
         
+        // 清除缓存的shader代码
+        compiledShaderCodeCache.remove(proj.path)
+        
         thisLogger().info("[ShadertoyProjectManager] Project removed: ${proj.name}")
     }
     
@@ -270,6 +280,27 @@ class ShadertoyProjectManager(private val project: Project) {
         val projectBasePath = project.basePath 
             ?: throw IllegalStateException("Project base path is null")
         return File("$projectBasePath/$CONFIG_FILE_NAME")
+    }
+    
+    /**
+     * 缓存编译后的Shader代码
+     * 
+     * @param shadertoyProject Shadertoy项目
+     * @param code 编译后的完整Shader代码
+     */
+    fun cacheShaderCode(shadertoyProject: ShadertoyProject, code: String) {
+        compiledShaderCodeCache[shadertoyProject.path] = code
+        thisLogger().info("[ShadertoyProjectManager] Cached shader code for: ${shadertoyProject.name}")
+    }
+    
+    /**
+     * 获取缓存的Shader代码
+     * 
+     * @param shadertoyProject Shadertoy项目
+     * @return 缓存的Shader代码，如果没有缓存则返回null
+     */
+    fun getCachedShaderCode(shadertoyProject: ShadertoyProject): String? {
+        return compiledShaderCodeCache[shadertoyProject.path]
     }
 }
 

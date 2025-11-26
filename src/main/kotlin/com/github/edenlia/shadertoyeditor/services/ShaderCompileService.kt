@@ -76,15 +76,17 @@ class ShaderCompileService(private val project: Project) : Disposable {
     }
     
     /**
-     * 编译当前激活的Shadertoy项目并加载到渲染器
-     * 这是一个高级方法，包含完整的编译流程：检查激活项目、DumbService、输出窗口等
+     * 编译指定的Shadertoy项目
+     * 
+     * 编译成功后会：
+     * 1. 将代码缓存到 ShadertoyProjectManager
+     * 2. 发布 onShadertoyProjectCompiled 事件，由渲染后端监听并加载
+     * 
+     * @param shadertoyProject 要编译的项目，允许为null（会提示用户）
      */
-    fun compileShadertoyProject() {
-        val projectManager = project.service<ShadertoyProjectManager>()
-        val currentProject = projectManager.getCurrentShadertoyProject()
-        
+    fun compileShadertoyProject(shadertoyProject: ShadertoyProject?) {
         // 检查是否有激活的项目
-        if (currentProject == null) {
+        if (shadertoyProject == null) {
             Messages.showWarningDialog(
                 project,
                 "Please activate a Shadertoy project first by double-clicking it",
@@ -96,33 +98,27 @@ class ShaderCompileService(private val project: Project) : Disposable {
         // 检查是否处于索引构建模式
         if (DumbService.isDumb(project)) {
             thisLogger().info("[ShaderCompileService] Cannot compile shader during indexing, will retry when indexing is complete")
-            // 等待索引完成后再执行
+            // 等待索引完成后再执行（传入相同的项目参数）
             DumbService.getInstance(project).runWhenSmart {
-                compileShadertoyProject()
+                compileShadertoyProject(shadertoyProject)
             }
             return
         }
 
         try {
-            // 获取 ShadertoyOutput 窗口实例
-            val outputWindow = ShadertoyOutputWindowFactory.getInstance(project)
-            if (outputWindow == null) {
-                thisLogger().warn("[ShaderCompileService] ShadertoyConsole window not found")
-                Messages.showWarningDialog(
-                    project,
-                    "Please open the ShadertoyConsole window first",
-                    "Window Not Found"
-                )
-                return
-            }
-            
             // 编译shader代码
-            val shaderCode = compileShaderToCode(currentProject)
+            val shaderCode = compileShaderToCode(shadertoyProject)
             
-            // 加载到渲染后端
-            outputWindow.getRenderBackend().loadShader(shaderCode)
+            // 缓存到 ProjectManager
+            val projectManager = project.service<ShadertoyProjectManager>()
+            projectManager.cacheShaderCode(shadertoyProject, shaderCode)
             
-            thisLogger().info("[ShaderCompileService] Shader compiled and loaded successfully: ${currentProject.name}")
+            // 发布编译完成事件
+            ApplicationManager.getApplication().messageBus
+                .syncPublisher(STE_IDEProjectEventListener.TOPIC)
+                .onShadertoyProjectCompiled(shadertoyProject)
+            
+            thisLogger().info("[ShaderCompileService] Shader compiled and cached successfully: ${shadertoyProject.name}")
             
         } catch (e: Exception) {
             thisLogger().error("[ShaderCompileService] Failed to compile shader", e)
@@ -347,7 +343,9 @@ void main() {
         
         // 延迟一点确保文件已完全保存到磁盘（虽然我们读取的是 Document，但保险起见）
         SwingUtilities.invokeLater {
-            compileShadertoyProject()
+            val projectManager = project.service<ShadertoyProjectManager>()
+            val currentProject = projectManager.getCurrentShadertoyProject()
+            compileShadertoyProject(currentProject)
         }
     }
     

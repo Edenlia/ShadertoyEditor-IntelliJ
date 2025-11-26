@@ -190,7 +190,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
                         // 加载项目的所有textures
                         loadProjectTextures(shadertoyProject)
                         val shaderCompileService = project.service<ShaderCompileService>()
-                        shaderCompileService.compileShadertoyProject()
+                        shaderCompileService.compileShadertoyProject(shadertoyProject)
                     }
                 }
                 
@@ -204,6 +204,22 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
                         loadChannelTexture(channelIndex, texturePath)
                     } else {
                         thisLogger().info("[JoglBackend] Texture changed for non-active project, ignoring")
+                    }
+                }
+                
+                override fun onShadertoyProjectCompiled(shadertoyProject: ShadertoyProject) {
+                    // 只有当编译的是当前激活项目时才加载shader
+                    if (shadertoyProject == currentProject) {
+                        thisLogger().info("[JoglBackend] Shader compiled for active project, loading...")
+                        val projectManager = project.service<ShadertoyProjectManager>()
+                        val shaderCode = projectManager.getCachedShaderCode(shadertoyProject)
+                        if (shaderCode != null) {
+                            loadShader(shaderCode)
+                        } else {
+                            thisLogger().warn("[JoglBackend] No cached shader code found for: ${shadertoyProject.name}")
+                        }
+                    } else {
+                        thisLogger().info("[JoglBackend] Shader compiled for non-active project, ignoring")
                     }
                 }
             }
@@ -331,9 +347,10 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
         // load texture and compile shader
         val shadertoyProjectManager = project.service<ShadertoyProjectManager>()
         val compileService = project.service<ShaderCompileService>()
-        if (shadertoyProjectManager.getCurrentShadertoyProject() != null) {
-            loadProjectTextures(shadertoyProjectManager.getCurrentShadertoyProject())
-            compileService.compileShadertoyProject()
+        val currentProject = shadertoyProjectManager.getCurrentShadertoyProject()
+        if (currentProject != null) {
+            loadProjectTextures(currentProject)
+            compileService.compileShadertoyProject(currentProject)
         }
     }
 

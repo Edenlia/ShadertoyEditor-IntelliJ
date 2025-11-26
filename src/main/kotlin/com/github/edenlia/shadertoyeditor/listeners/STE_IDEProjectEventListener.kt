@@ -46,6 +46,13 @@ interface STE_IDEProjectEventListener {
      */
     fun onShadertoyConsoleHidden(project: Project, toolWindow: ToolWindow) {}
     
+    /**
+     * Shadertoy项目编译完成时触发
+     * 
+     * @param shadertoyProject 编译完成的项目
+     */
+    fun onShadertoyProjectCompiled(shadertoyProject: ShadertoyProject) {}
+    
     companion object {
         /**
          * MessageBus Topic用于发布和订阅项目级事件
