@@ -25,6 +25,8 @@ interface RenderBackend : Disposable {
      * @return JComponent 渲染视图组件
      */
     fun getRootComponent(): JComponent
+
+    fun compileShader(shaderSource: String)
     
     /**
      * 加载并编译Shader代码

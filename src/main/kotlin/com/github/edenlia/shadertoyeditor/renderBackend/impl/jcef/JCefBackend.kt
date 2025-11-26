@@ -17,7 +17,7 @@ import javax.swing.JComponent
  * @param project 当前项目实例
  * @throws UnsupportedOperationException 总是抛出，因为此后端已被禁用
  */
-class JCefBackend(
+abstract class JCefBackend(
     private val project: Project
 ) : RenderBackend {
     

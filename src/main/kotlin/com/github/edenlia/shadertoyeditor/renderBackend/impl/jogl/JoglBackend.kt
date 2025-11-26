@@ -55,6 +55,8 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     private var glCanvas: GLCanvas? = null
     private var animator: FPSAnimator? = null
 
+    private var glRef: GL3? = null
+
     // Shader相关
     private var shaderProgram: Int = 0
     private var quadVAO: Int = 0
@@ -295,6 +297,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
     override fun init(drawable: GLAutoDrawable) {
         val gl = drawable.gl.gL3
+        glRef = gl
 
         thisLogger().info("[JOGL] ========== OpenGL Context Initialized ==========")
         thisLogger().info("[JOGL] OpenGL Version: ${gl.glGetString(GL.GL_VERSION)}")
@@ -383,6 +386,7 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
     override fun dispose(drawable: GLAutoDrawable) {
         val gl = drawable.gl.gL3
+        glRef = null
 
         // 清理OpenGL资源
         if (shaderProgram != 0) {
@@ -413,6 +417,10 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     // ===== RenderBackend 接口实现 =====
 
     override fun getRootComponent(): JComponent = rootPanel
+
+    override fun compileShader(shaderSource: String) {
+
+    }
 
     override fun loadShader(fragmentShaderSource: String) {
         if (!initialized) {
