@@ -46,6 +46,17 @@ interface STE_IDEProjectEventListener {
      */
     fun onShadertoyConsoleHidden(project: Project, toolWindow: ToolWindow) {}
 
+    fun onGlslShaderChanged(
+        shadertoyProject: ShadertoyProject,
+        fileName: String, // Right now only Image, later could be buffer1, buffer2, buffer3
+    ) {}
+
+    fun onShaderCompiled(
+        shadertoyProject: ShadertoyProject,
+        success: Boolean,
+        message: String,
+    ) {}
+
     companion object {
         /**
          * MessageBus Topic用于发布和订阅项目级事件

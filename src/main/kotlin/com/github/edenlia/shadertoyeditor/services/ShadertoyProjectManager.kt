@@ -32,13 +32,8 @@ class ShadertoyProjectManager(private val project: Project) {
 
     private var config: ShadertoyProjectConfig = ShadertoyProjectConfig()
     private var currentProject: ShadertoyProject? = null
-    
-    /**
-     * 编译后的Shader代码缓存
-     * Key: 项目的相对路径 (ShadertoyProject.path)
-     * Value: 编译后的完整Shader代码
-     */
-    private val compiledShaderCodeCache = mutableMapOf<String, String>()
+
+    private val wappredImageShader = mutableMapOf<String, String>()
     
     init {
         thisLogger().info("[ShadertoyProjectManager] Initializing...")
@@ -237,7 +232,7 @@ class ShadertoyProjectManager(private val project: Project) {
         }
         
         // 清除缓存的shader代码
-        compiledShaderCodeCache.remove(proj.path)
+        wappredImageShader.remove(proj.path)
         
         thisLogger().info("[ShadertoyProjectManager] Project removed: ${proj.name}")
     }
@@ -286,21 +281,21 @@ class ShadertoyProjectManager(private val project: Project) {
      * 缓存编译后的Shader代码
      * 
      * @param shadertoyProject Shadertoy项目
-     * @param code 编译后的完整Shader代码
+     * @param shader 编译后的完整Shader代码
      */
-    fun cacheWarppedShader(shadertoyProject: ShadertoyProject, code: String) {
-        compiledShaderCodeCache[shadertoyProject.path] = code
+    fun cacheWarppedImageShader(shadertoyProject: ShadertoyProject, shader: String) {
+        wappredImageShader[shadertoyProject.path] = shader
         thisLogger().info("[ShadertoyProjectManager] Cached shader code for: ${shadertoyProject.name}")
     }
     
     /**
-     * 获取缓存的Shader代码
+     * 获取缓存的Shader
      * 
      * @param shadertoyProject Shadertoy项目
      * @return 缓存的Shader代码，如果没有缓存则返回null
      */
     fun getWarppedGlslShader(shadertoyProject: ShadertoyProject): String? {
-        return compiledShaderCodeCache[shadertoyProject.path]
+        return wappredImageShader[shadertoyProject.path]
     }
 }
 

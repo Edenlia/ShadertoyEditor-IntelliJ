@@ -68,7 +68,7 @@ class ShaderCompileService(private val project: Project) : Disposable {
      * @return 完整的Fragment Shader源代码
      * @throws IllegalStateException 如果项目路径为null或Image.glsl未找到
      */
-    fun warpGlslShader(shadertoyProject: ShadertoyProject): String {
+    fun warpShadertoyImageGlslShader(shadertoyProject: ShadertoyProject): String {
         thisLogger().info("[ShaderCompileService] Compiling project: ${shadertoyProject.name}")
         val glslContent = readProjectImageGlsl(shadertoyProject)
         return wrapShaderCode(glslContent)
@@ -106,14 +106,14 @@ class ShaderCompileService(private val project: Project) : Disposable {
 
         try {
             // 编译shader代码
-            val warppedShader = warpGlslShader(shadertoyProject)
+            val warppedImageShader = warpShadertoyImageGlslShader(shadertoyProject)
             
             // 缓存到 ProjectManager
             val projectManager = project.service<ShadertoyProjectManager>()
             val renderBackendService = project.service<RenderBackendService>()
-            projectManager.cacheWarppedShader(shadertoyProject, warppedShader)
+            projectManager.cacheWarppedImageShader(shadertoyProject, warppedImageShader)
 
-            renderBackendService.getBackend().loadShader(warppedShader)
+            renderBackendService.getBackend().loadShader(warppedImageShader)
 
             thisLogger().info("[ShaderCompileService] Shader compiled and cached successfully: ${shadertoyProject.name}")
             
