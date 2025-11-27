@@ -55,8 +55,6 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
     private var glCanvas: GLCanvas? = null
     private var animator: FPSAnimator? = null
 
-    private var glRef: GL3? = null
-
     // Shader相关
     private var shaderProgram: Int = 0
     private var quadVAO: Int = 0
@@ -297,7 +295,6 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
     override fun init(drawable: GLAutoDrawable) {
         val gl = drawable.gl.gL3
-        glRef = gl
 
         thisLogger().info("[JOGL] ========== OpenGL Context Initialized ==========")
         thisLogger().info("[JOGL] OpenGL Version: ${gl.glGetString(GL.GL_VERSION)}")
@@ -386,7 +383,6 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
     override fun dispose(drawable: GLAutoDrawable) {
         val gl = drawable.gl.gL3
-        glRef = null
 
         // 清理OpenGL资源
         if (shaderProgram != 0) {
@@ -453,28 +449,33 @@ class JoglBackend(private val project: Project) : RenderBackend, GLEventListener
 
                 shaderCompiled = true
 
-                SwingUtilities.invokeLater {
-                    statusLabel.text = "Shader running - ${realCanvasWidth}x${realCanvasHeight}"
-                    statusLabel.foreground = JBColor.GREEN
-                }
+                val shadertoyProjectManager = project.service<ShadertoyProjectManager>()
+                project.messageBus
+                    .syncPublisher(STE_IDEProjectEventListener.TOPIC)
+                    .onShaderCompiled(
+                        shadertoyProjectManager.getCurrentShadertoyProject(),
+                        true,
+                        null)
+
+//                SwingUtilities.invokeLater {
+//                    statusLabel.text = "Shader running - ${realCanvasWidth}x${realCanvasHeight}"
+//                    statusLabel.foreground = JBColor.GREEN
+//                }
 
                 thisLogger().info("[JOGL] Shader loaded successfully")
 
             } catch (e: Exception) {
                 shaderCompiled = false
-                thisLogger().error("[JOGL] Shader compilation failed", e)
+                thisLogger().info("[JOGL] Shader compilation failed", e)
 
-                SwingUtilities.invokeLater {
-                    statusLabel.text = "Shader compilation failed"
-                    statusLabel.foreground = JBColor.RED
+                val shadertoyProjectManager = project.service<ShadertoyProjectManager>()
 
-                    JOptionPane.showMessageDialog(
-                        renderPanel,
-                        e.message,
-                        "Shader Compilation Error",
-                        JOptionPane.ERROR_MESSAGE
-                    )
-                }
+                project.messageBus
+                    .syncPublisher(STE_IDEProjectEventListener.TOPIC)
+                    .onShaderCompiled(
+                        shadertoyProjectManager.getCurrentShadertoyProject(),
+                        false,
+                        e.message)
             }
 
             true  // 返回true表示需要重绘

@@ -104,27 +104,17 @@ class ShaderCompileService(private val project: Project) : Disposable {
             return
         }
 
-        try {
-            // 编译shader代码
-            val warppedImageShader = warpShadertoyImageGlslShader(shadertoyProject)
-            
-            // 缓存到 ProjectManager
-            val projectManager = project.service<ShadertoyProjectManager>()
-            val renderBackendService = project.service<RenderBackendService>()
-            projectManager.cacheWarppedImageShader(shadertoyProject, warppedImageShader)
+        // 编译shader代码
+        val warppedImageShader = warpShadertoyImageGlslShader(shadertoyProject)
 
-            renderBackendService.getBackend().loadShader(warppedImageShader)
+        // 缓存到 ProjectManager
+        val projectManager = project.service<ShadertoyProjectManager>()
+        val renderBackendService = project.service<RenderBackendService>()
+        projectManager.cacheWarppedImageShader(shadertoyProject, warppedImageShader)
 
-            thisLogger().info("[ShaderCompileService] Shader compiled and cached successfully: ${shadertoyProject.name}")
-            
-        } catch (e: Exception) {
-            thisLogger().error("[ShaderCompileService] Failed to compile shader", e)
-            Messages.showErrorDialog(
-                project,
-                "Compilation failed: ${e.message}",
-                "Shader Compilation Error"
-            )
-        }
+        renderBackendService.getBackend().loadShader(warppedImageShader)
+
+        thisLogger().info("[ShaderCompileService] Shader compiled and cached successfully: ${shadertoyProject.name}")
     }
     
     /**

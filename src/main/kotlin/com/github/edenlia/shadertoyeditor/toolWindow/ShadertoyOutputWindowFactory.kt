@@ -9,12 +9,17 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.util.messages.MessageBusConnection
 import com.github.edenlia.shadertoyeditor.renderBackend.RenderBackend
 import com.github.edenlia.shadertoyeditor.listeners.STE_IDEProjectEventListener
+import com.github.edenlia.shadertoyeditor.model.ShadertoyProject
 import com.github.edenlia.shadertoyeditor.services.RenderBackendService
+import com.github.edenlia.shadertoyeditor.services.ShadertoyProjectManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.ui.JBColor
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import javax.swing.JComponent
+import javax.swing.JOptionPane
+import javax.swing.SwingUtilities
 
 
 class ShadertoyOutputWindowFactory : ToolWindowFactory {
@@ -47,18 +52,16 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
     ) : com.intellij.openapi.Disposable {
         
         private val renderBackend: RenderBackend
-        private val messageBusConnection: MessageBusConnection
 
         init {
             // 从 Service 获取 RenderBackend（懒加载，每个 Project 一个实例）
             renderBackend = project.service<RenderBackendService>().getBackend()
             thisLogger().info("[ShadertoyOutputWindow] Got RenderBackend from service")
 
-            // 订阅参考分辨率变更事件（Settings 修改时）
-            messageBusConnection = ApplicationManager.getApplication().messageBus.connect(this)
 
             // 监听 ToolWindow 尺寸变化（主动调用 Backend）
             subscribeToToolWindowResize()
+            subscribeToSTE_IDEProjectEvent()
         }
 
         /**
@@ -80,7 +83,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
         }
 
         private fun subscribeToSTE_IDEProjectEvent() {
-            messageBusConnection.subscribe(
+            project.messageBus.connect(this).subscribe(
                 STE_IDEProjectEventListener.TOPIC,
                 object : STE_IDEProjectEventListener {
                     override fun onShadertoyConsoleShown(project: Project, toolWindow: ToolWindow) {
@@ -91,6 +94,34 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
 
                     override fun onShadertoyConsoleHidden(project: Project, toolWindow: ToolWindow) {
 
+                    }
+
+                    override fun onShaderCompiled(
+                        shadertoyProject: ShadertoyProject?,
+                        success: Boolean,
+                        message: String?
+                    ) {
+                        val shadertoyProjectManager = project.service<ShadertoyProjectManager>()
+
+                        if (shadertoyProject != null &&
+                            shadertoyProject == shadertoyProjectManager.getCurrentShadertoyProject()) {
+                            if (success) {
+
+                            }
+                            else {
+                                SwingUtilities.invokeLater {
+//                                    statusLabel.text = "Shader compilation failed"
+//                                    statusLabel.foreground = JBColor.RED
+
+                                    JOptionPane.showMessageDialog(
+                                        renderBackend.getRootComponent(),
+                                        message,
+                                        "Shader Compilation Error",
+                                        JOptionPane.ERROR_MESSAGE
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             )
@@ -118,10 +149,7 @@ class ShadertoyOutputWindowFactory : ToolWindowFactory {
             
             // 禁用渲染（节省 CPU，但不销毁 Backend）
             renderBackend.enableRendering(false)
-            
-            // 断开 MessageBus 连接
-            messageBusConnection.disconnect()
-            
+
             // 注意：不调用 renderBackend.dispose()
             // Backend 的生命周期由 RenderBackendService 管理，跟随 Project
             thisLogger().info("[ShadertoyOutputWindow] Output window disposed, rendering disabled")

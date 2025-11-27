@@ -52,9 +52,9 @@ interface STE_IDEProjectEventListener {
     ) {}
 
     fun onShaderCompiled(
-        shadertoyProject: ShadertoyProject,
+        shadertoyProject: ShadertoyProject?,
         success: Boolean,
-        message: String,
+        message: String?,
     ) {}
 
     companion object {
